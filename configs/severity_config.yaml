@@ -1,0 +1,17 @@
+# Severity thresholds — erosion_percentage -> severity label
+severity_thresholds:
+  low: 5.0       # 0–5%
+  medium: 20.0   # 5–20%
+  high: 50.0     # 20–50%
+  critical: 100.0  # > 50%
+
+# Confidence below this → requires_human_review = true
+confidence_review_threshold: 0.65
+
+# Image quality — Laplacian variance below this → blur flag
+blur_threshold: 100.0
+
+# Minimum image resolution (pixels)
+min_resolution:
+  width: 640
+  height: 480
