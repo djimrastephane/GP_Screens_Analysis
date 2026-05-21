@@ -76,7 +76,7 @@ Role-based views are available — Engineering users see full technical detail; 
 
 ### Home — Campaign Overview
 ![Home](docs/screenshots/01_home.png)
-Campaign KPIs (images analysed, mean and max erosion %, total defects, review flags), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. Erosion % tooltip shows the exact formula.
+Campaign KPIs (images analysed, mean and max erosion %, total defects, review flags), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. Hover over any erosion % metric to see the exact formula.
 
 ### Gallery — Image Browser
 ![Gallery](docs/screenshots/02_gallery.png)
@@ -84,15 +84,19 @@ Thumbnail grid of annotated screen images, sortable by erosion % or severity, wi
 
 ### Analysis — Per-Image Detail
 ![Analysis](docs/screenshots/03_analysis.png)
-Six KPI cards per image: erosion % (with formula tooltip), defect count, severity (with threshold basis tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds an auto-generated assessment — risk level, likely mechanism, plain-English interpretation, and recommended actions. Defect size summary (largest defect, average defect, largest diameter) sits above the per-defect table. Severity threshold basis and recommended actions are in expandable panels.
+Six KPI cards: erosion % (formula tooltip), defect count, severity (threshold tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds: image quality panel (focus score, illumination, quality flag, screen coverage); auto-generated engineering assessment with risk level, likely mechanism, plain-English interpretation, and morphological classification basis explaining *why* the failure type was assigned; scale calibration UI to enter pixels/mm from a visible ruler — instantly converts all diameters to mm and areas to cm²; per-defect table with the model's own reasoning string per detection.
 
 ### Quantification — Metrics & Charts
 ![Quantification](docs/screenshots/04_quantification.png)
-Erosion % bar chart with labelled severity thresholds and full metric definition in the caption. Charts include failure type distribution and erosion vs defect count scatter. Full metrics table adds largest defect %, average defect diameter, and mean confidence columns alongside defect count.
+Erosion % bar chart with labelled severity thresholds and full metric definition in the caption. Full metrics table includes largest defect %, average defect diameter, and mean model confidence columns.
 
 ### Reports — PDF Downloads
 ![Reports](docs/screenshots/05_reports.png)
 Download the campaign summary PDF or individual per-image annotated engineering reports as a ZIP archive.
+
+### Engineering Assessment — Campaign Synthesis
+![Assessment](docs/screenshots/06_assessment.png)
+Campaign-level engineering synthesis: colour-coded overall risk banner with risk description; observed conditions generated from actual data (failure type prevalence across all screens, worst-case erosion, review flag count); morphological classification basis per detected failure type in expandable panels; potential root causes derived from the combination of failure types; severity distribution with threshold explanation; prioritised recommended actions synthesised from all failure types; and a per-screen summary table sorted by erosion %.
 
 ---
 
@@ -125,7 +129,9 @@ Place source images in `Image/` or `data/raw/`. Do not modify source files — t
 | Severity | < 5 % → Low · 5–20 % → Medium · 20–50 % → High · ≥ 50 % → Critical. Screen collapse and complete plugging escalate one level regardless of area. |
 | Mean confidence | Average model confidence across all detections for the image (0–100 %). Detections below 70 % are flagged for human review. |
 | Largest defect % | Area of the single largest detected defect as % of visible screen area. More indicative of breach severity than defect count alone. |
-| Avg defect diameter | Mean equivalent circular diameter across all detections (pixels). Converts to mm when `pixels_per_mm` is calibrated. |
+| Largest diameter | Equivalent circular diameter of the largest defect (pixels, or mm when scale is calibrated from a ruler in the image). |
+| Damage density | Defects per cm² of screen area (requires scale calibration). |
+| Total damaged area | Cumulative defect area in cm² (requires scale calibration). |
 | Defect count | Number of distinct failure locations detected per image. |
 | Failure type distribution | Breakdown by failure mode across the full campaign. |
 
