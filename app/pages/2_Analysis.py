@@ -8,12 +8,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pandas as pd
 import streamlit as st
+from sqlalchemy import create_engine, text
 
 from app.components.data_loader import get_db_path, load_summary_df
 from app.components.charts import failure_type_breakdown_pie
 from app.components.image_viewer import show_three_panel, show_panel
 from app.components.interpretation import (
     engineering_interpretation,
+    classification_evidence,
     EROSION_PCT_DEFINITION,
     _SEVERITY_BASIS as SEVERITY_BASIS,
 )
@@ -30,7 +32,6 @@ df = load_summary_df(db_path)
 
 st.title("Per-Image Analysis")
 
-# Image selector
 filenames = df["source_filename"].tolist()
 selected = st.selectbox("Select image", filenames, index=0)
 rec = df[df["source_filename"] == selected].iloc[0]
@@ -46,7 +47,7 @@ with k2:
     st.metric("Defects", int(rec["n_defects"]))
 with k3:
     sev = rec["overall_severity"]
-    st.metric("Severity", f"{sev_emoji.get(sev,'')} {sev.capitalize()}",
+    st.metric("Severity", f"{sev_emoji.get(sev, '')} {sev.capitalize()}",
               help=SEVERITY_BASIS)
 with k4:
     st.metric("Dominant Type",
@@ -55,7 +56,7 @@ with k5:
     conf = rec.get("mean_confidence")
     st.metric("Mean Confidence",
               f"{conf:.0%}" if conf is not None else "N/A",
-              help="Mean model confidence across all detections for this image (0–100%). "
+              help="Mean model confidence across all detections (0–100%). "
                    "Values below 70% indicate uncertain detections that warrant human review.")
 with k6:
     n_rev = int(rec["n_requires_review"])
@@ -63,6 +64,78 @@ with k6:
               delta_color="inverse" if n_rev else "off")
 
 st.divider()
+
+# ---- Image quality panel (Engineering only) ----
+if role == "Engineering":
+    lv = rec.get("laplacian_variance")
+    mb = rec.get("mean_brightness")
+    qf = rec.get("quality_flag") or "unknown"
+    screen_area = rec.get("screen_region_area_px", 0)
+    img_w = rec.get("image_width") or rec.get("image_width", 0)
+    # screen coverage from quantification_reports dimensions
+    engine_tmp = create_engine(f"sqlite:///{db_path}", echo=False)
+    with engine_tmp.connect() as conn:
+        dim_row = conn.execute(
+            text("SELECT image_width, image_height FROM quantification_reports WHERE image_id = :iid"),
+            {"iid": rec["image_id"]},
+        ).fetchone()
+    total_px = (dim_row[0] * dim_row[1]) if dim_row and dim_row[0] and dim_row[1] else None
+    screen_pct = (screen_area / total_px * 100) if (total_px and screen_area) else None
+
+    def _focus_label(v):
+        if v is None:
+            return "Unknown"
+        if v < 100:
+            return "Poor"
+        if v < 500:
+            return "Acceptable"
+        if v < 1500:
+            return "Good"
+        return "Excellent"
+
+    def _illum_label(b):
+        if b is None:
+            return "Unknown"
+        if b < 50:
+            return "Dark"
+        if b < 80:
+            return "Slightly dark"
+        if b < 175:
+            return "Good"
+        return "Overexposed"
+
+    with st.expander("Image quality metrics", expanded=False):
+        iq1, iq2, iq3, iq4 = st.columns(4)
+        with iq1:
+            st.metric("Focus",
+                      _focus_label(lv),
+                      delta=f"{lv:.0f} Laplacian variance" if lv else "not measured",
+                      delta_color="off",
+                      help="Laplacian variance of the image. Higher = sharper. "
+                           "< 100: poor (blurry); 100–500: acceptable; > 500: good.")
+        with iq2:
+            st.metric("Illumination",
+                      _illum_label(mb),
+                      delta=f"mean brightness {mb:.0f}/255" if mb else "not measured",
+                      delta_color="off",
+                      help="Mean pixel brightness (0–255). 80–175 is optimal for detection accuracy.")
+        with iq3:
+            flag_display = qf.replace("_", " ").title() if qf != "ok" else "OK"
+            st.metric("Quality flag", flag_display,
+                      help="Assigned during ingestion: ok / blurry / glare / "
+                           "low_resolution / occluded / bad_angle")
+        with iq4:
+            st.metric("Screen coverage",
+                      f"{screen_pct:.0f}%" if screen_pct else "N/A",
+                      help="Percentage of total image area identified as screen content. "
+                           "Low values may indicate cropping or obstruction.")
+        if qf not in ("ok", "unknown", None):
+            st.warning(
+                f"Quality flag: **{flag_display}** — detection accuracy may be reduced. "
+                "Treat results with caution and verify flagged detections."
+            )
+
+    st.divider()
 
 # ---- Image comparison ----
 if role == "Engineering":
@@ -106,6 +179,13 @@ if role == "Engineering":
     )
     st.markdown(interp["detail"])
 
+    # Classification evidence
+    ev_text = classification_evidence(rec["dominant_failure_type"])
+    st.markdown(
+        f"**Classification basis** *(dominant failure type: "
+        f"{rec['dominant_failure_type'].replace('_', ' ').title()})*: {ev_text}"
+    )
+
     if interp["confidence_note"]:
         st.caption(interp["confidence_note"])
 
@@ -137,6 +217,7 @@ with col_table:
                 "Count": stats["count"],
                 "Area (px)": f"{stats['area_px']:,}",
                 "Area % screen": f"{stats['area_pct_of_screen']:.2f}%",
+                "Classification basis": classification_evidence(ft)[:80] + "…",
             })
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
@@ -145,23 +226,70 @@ if role == "Engineering":
     st.divider()
     st.subheader("Per-Defect Detail")
 
-    from sqlalchemy import create_engine, text
-    engine = create_engine(f"sqlite:///{db_path}", echo=False)
-    with engine.connect() as conn:
-        result = conn.execute(
+    # ---- Scale calibration ----
+    ppm = rec.get("pixels_per_mm")
+    calibrated = bool(rec.get("scale_calibrated")) and ppm and float(ppm) > 0
+
+    with st.expander(
+        f"Scale calibration — {'calibrated: ' + str(round(float(ppm), 2)) + ' px/mm' if calibrated else 'not calibrated (pixel units only)'}",
+        expanded=not calibrated,
+    ):
+        st.caption(
+            "Enter the number of pixels per millimetre from a visible ruler or scale bar in the image. "
+            "Once saved, all diameter and area measurements convert to physical units."
+        )
+        col_inp, col_btn = st.columns([2, 1])
+        with col_inp:
+            new_ppm = st.number_input(
+                "Pixels per mm", min_value=0.1, max_value=5000.0,
+                value=float(ppm) if calibrated else 10.0, step=0.1,
+                key=f"ppm_{rec['image_id']}",
+            )
+        with col_btn:
+            st.write("")
+            st.write("")
+            if st.button("Save calibration", key=f"save_ppm_{rec['image_id']}"):
+                engine_cal = create_engine(f"sqlite:///{db_path}", echo=False)
+                with engine_cal.begin() as conn:
+                    conn.execute(
+                        text(
+                            "UPDATE quantification_reports "
+                            "SET pixels_per_mm = :ppm, scale_calibrated = 1 "
+                            "WHERE image_id = :iid"
+                        ),
+                        {"ppm": new_ppm, "iid": rec["image_id"]},
+                    )
+                load_summary_df.clear()
+                st.rerun()
+
+    engine_det = create_engine(f"sqlite:///{db_path}", echo=False)
+    with engine_det.connect() as conn:
+        det_row = conn.execute(
             text("SELECT defects_json FROM quantification_reports WHERE image_id = :iid"),
             {"iid": rec["image_id"]},
-        )
-        row = result.fetchone()
+        ).fetchone()
 
-    if row:
-        defects = json.loads(row[0] or "[]")
+    # Also load reasoning from classification_runs
+    with engine_det.connect() as conn:
+        cls_row = conn.execute(
+            text("SELECT classifications_json FROM classification_runs WHERE image_id = :iid LIMIT 1"),
+            {"iid": rec["image_id"]},
+        ).fetchone()
+    reasoning_map: dict[int, str] = {}
+    if cls_row:
+        for c in json.loads(cls_row[0] or "[]"):
+            reasoning_map[c.get("detection_index", -1)] = c.get("reasoning", "")
 
-        # Defect size summary above the table
+    if det_row:
+        defects = json.loads(det_row[0] or "[]")
+
         if defects:
+            ppm_val = float(ppm) if calibrated else None
             areas = [d.get("defect_area_pct_of_screen", 0) for d in defects]
-            diameters = [d.get("equivalent_diameter_px", 0) for d in defects]
-            ds1, ds2, ds3 = st.columns(3)
+            diameters_px = [d.get("equivalent_diameter_px", 0) for d in defects]
+            areas_px = [d.get("defect_area_px", 0) for d in defects]
+
+            ds1, ds2, ds3, ds4 = st.columns(4)
             with ds1:
                 st.metric("Largest defect", f"{max(areas):.2f}% screen area",
                           help="Area of the single largest detected defect as % of visible screen area.")
@@ -169,21 +297,49 @@ if role == "Engineering":
                 st.metric("Avg defect size", f"{sum(areas)/len(areas):.2f}% screen area",
                           help="Mean defect area across all detections.")
             with ds3:
-                st.metric("Largest diameter", f"{max(diameters):.0f} px",
-                          help="Equivalent circular diameter of the largest defect. "
-                               "Set pixels_per_mm in configs/severity_config.yaml for mm conversion.")
+                if ppm_val:
+                    st.metric("Largest diameter",
+                              f"{max(diameters_px) / ppm_val:.1f} mm",
+                              help="Equivalent circular diameter of the largest defect, converted from pixels.")
+                else:
+                    st.metric("Largest diameter", f"{max(diameters_px):.0f} px",
+                              help="Equivalent circular diameter. Calibrate scale above for mm conversion.")
+            with ds4:
+                if ppm_val:
+                    screen_area_px = int(rec.get("screen_region_area_px", 0))
+                    screen_cm2 = screen_area_px / (ppm_val ** 2) / 100
+                    damaged_cm2 = sum(areas_px) / (ppm_val ** 2) / 100
+                    density_cm2 = len(defects) / screen_cm2 if screen_cm2 > 0 else 0
+                    st.metric("Damage density", f"{density_cm2:.1f} /cm²",
+                              help="Number of detected defects per cm² of screen area.")
+                else:
+                    st.metric("Defect density", f"{rec.get('defect_density_per_10k_px', 0):.2f} /10k px",
+                              help="Calibrate scale above for defects/cm².")
+
+            if ppm_val:
+                st.caption(
+                    f"Physical scale: {ppm_val:.2f} px/mm  |  "
+                    f"Total damaged area: {sum(areas_px)/(ppm_val**2)/100:.2f} cm²  |  "
+                    f"Mean pit diameter: {sum(diameters_px)/len(diameters_px)/ppm_val:.1f} mm"
+                )
 
         det_rows = []
         for d in defects:
-            det_rows.append({
+            row_d: dict = {
                 "#": d["detection_index"],
                 "Failure Type": d["failure_type"].replace("_", " ").title(),
                 "Severity": d["severity"].capitalize(),
                 "Confidence": round(d["confidence"], 2),
                 "Area % screen": round(d["defect_area_pct_of_screen"], 2),
                 "Diameter (px)": round(d["equivalent_diameter_px"], 1),
-                "Review": "⚠ Yes" if d["requires_human_review"] else "—",
-            })
+            }
+            if calibrated and ppm_val:
+                row_d["Diameter (mm)"] = round(d["equivalent_diameter_px"] / ppm_val, 2)
+            row_d["Review"] = "⚠ Yes" if d["requires_human_review"] else "—"
+            reasoning = reasoning_map.get(d["detection_index"], "")
+            if reasoning:
+                row_d["Model reasoning"] = reasoning
+            det_rows.append(row_d)
 
         det_df = pd.DataFrame(det_rows)
         st.dataframe(
@@ -196,15 +352,9 @@ if role == "Engineering":
             },
         )
 
-    # Notes
     st.divider()
-    if not rec.get("scale_calibrated"):
-        st.info(
-            "**Scale not calibrated.** Diameter measurements are pixel-based only. "
-            "Set `pixels_per_mm` in `configs/severity_config.yaml` for physical measurements."
-        )
     if n_rev > 0:
         st.warning(
             f"**{n_rev} detection(s) flagged for human review.** "
-            "Classifier confidence below threshold — verify before use in decisions."
+            "Classifier confidence below threshold — verify before use in engineering decisions."
         )

@@ -134,6 +134,95 @@ _FAILURE_NARRATIVES: dict[str, dict] = {
     },
 }
 
+_CLASSIFICATION_EVIDENCE: dict[str, str] = {
+    "erosion_hole": (
+        "Compact, dark regions with irregular or scalloped boundaries and low circularity "
+        "(typically < 0.5), consistent with material loss through the screen aperture. "
+        "Often co-located with areas of high defect density and reduced wire visibility. "
+        "Low mean brightness in the defect region indicates absence of backing material."
+    ),
+    "corrosion_pitting": (
+        "Clustered pits with roughly circular or oval morphology and irregular edge degradation. "
+        "Surface-attack pattern typically spans multiple wires with uniform depth across the affected zone. "
+        "High saturation contrast between corroded metal and surrounding wire surface. "
+        "Pit distribution distinguishes chemical attack from mechanically-induced damage."
+    ),
+    "wire_wrap_failure": (
+        "Linear or segmented discontinuities along the wire wrap path, with edge displacement "
+        "inconsistent with the surrounding screen geometry. High aspect ratio (elongated shape) "
+        "and alignment with the screen wire direction are key discriminators from circular pit damage. "
+        "May show partial wire separation or distortion of the wrap pattern."
+    ),
+    "mechanical_damage": (
+        "Large, irregular deformation zones with high solidity and aspect ratios inconsistent "
+        "with corrosion or erosion patterns. Damage boundaries are typically abrupt rather than "
+        "progressive. Crushed or bent wire geometry and directional deformation suggest impact "
+        "loading from a specific direction during running, retrieval, or intervention."
+    ),
+    "plugging_partial": (
+        "Low-contrast, diffuse regions with reduced wire visibility and elevated mean brightness "
+        "relative to open screen areas. Texture analysis shows reduced spatial frequency "
+        "(loss of sharp wire edges) consistent with surface deposition rather than material removal. "
+        "Distribution is typically patchy rather than localised."
+    ),
+    "plugging_complete": (
+        "Extensive low-contrast regions covering large contiguous areas with near-total loss "
+        "of wire-wrap pattern visibility. Elevated and uniform brightness across the screen "
+        "face is consistent with a continuous deposition layer obscuring the screen structure."
+    ),
+    "screen_collapse": (
+        "Large-scale geometric distortion of the screen profile, with wire wrap spacing "
+        "inconsistent with design geometry. High-solidity, large-area defect regions with "
+        "internal structure indicating physical deformation of the screen body rather than "
+        "localised material loss or deposition."
+    ),
+    "unknown": (
+        "Detected region does not match the morphological signature of any classified failure type "
+        "with sufficient confidence. The region may represent a novel failure mode, poor image "
+        "quality in the area of interest, or a mixed mechanism requiring physical inspection."
+    ),
+}
+
+_POTENTIAL_CAUSES: dict[frozenset, list[str]] = {
+    frozenset({"erosion_hole", "corrosion_pitting"}): [
+        "Erosion-corrosion: combined mechanical and chemical attack from abrasive sand in corrosive fluids",
+        "High sand production velocity with concurrent corrosive produced water",
+        "Localised high-velocity flow channelling through the gravel pack",
+    ],
+    frozenset({"erosion_hole"}): [
+        "High-velocity abrasive sand erosion, possibly from non-uniform flow distribution",
+        "Gravel pack failure creating direct sand impingement on the screen",
+        "Production rate exceeding screen erosion velocity threshold",
+    ],
+    frozenset({"corrosion_pitting"}): [
+        "Electrochemical corrosion from CO₂, H₂S, or oxygen ingress",
+        "Produced water with elevated chloride or acid content",
+        "Insufficient or failed corrosion inhibitor programme",
+        "Galvanic corrosion at dissimilar metal contacts",
+    ],
+    frozenset({"mechanical_damage"}): [
+        "Mechanical impact during running, retrieval, or well intervention",
+        "Wellbore dog-leg or deviation causing contact damage",
+        "Overpull or torque event during completion or workover",
+    ],
+    frozenset({"wire_wrap_failure"}): [
+        "Fatigue from cyclic loading: flow-induced vibration, slug flow, or ESP operation",
+        "Corrosion-assisted stress cracking at wire wrap welds",
+        "Mechanical overload from differential pressure spike or hydraulic hammer",
+    ],
+    frozenset({"plugging_partial", "plugging_complete"}): [
+        "Formation fines migration relative to screen slot size",
+        "Scale deposition: carbonate, sulphate, or silicate",
+        "Asphaltene or wax deposition from pressure or temperature changes",
+        "Gravel pack consolidation or void formation promoting fines invasion",
+    ],
+    frozenset({"screen_collapse"}): [
+        "Differential pressure across screen exceeded design collapse rating",
+        "External annular pressure from formation or gravel pack consolidation",
+        "Mechanical loading from overpull or set-down during retrieval",
+    ],
+}
+
 _RISK_LABEL = {"low": "LOW", "medium": "MODERATE", "high": "HIGH", "critical": "CRITICAL"}
 
 _SEVERITY_BASIS = (
@@ -152,6 +241,109 @@ EROSION_PCT_DEFINITION = (
     "preprocessing is excluded. This is a model estimate of damaged area fraction, "
     "not a direct measurement of metal loss or open-flow area increase."
 )
+
+
+def classification_evidence(failure_type: str) -> str:
+    """Return morphological evidence text explaining why this failure type was classified."""
+    return _CLASSIFICATION_EVIDENCE.get(failure_type, _CLASSIFICATION_EVIDENCE["unknown"])
+
+
+def potential_causes(failure_types: list[str]) -> list[str]:
+    """Return potential root causes for the observed combination of failure types."""
+    ft_set = frozenset(failure_types)
+    # Exact match first
+    if ft_set in _POTENTIAL_CAUSES:
+        return _POTENTIAL_CAUSES[ft_set]
+    # Fall back to best partial match (most overlapping types)
+    best, best_score = [], 0
+    for key, causes in _POTENTIAL_CAUSES.items():
+        score = len(ft_set & key)
+        if score > best_score:
+            best, best_score = causes, score
+    if best:
+        return best
+    return ["Failure mechanism could not be determined from available failure types alone. "
+            "Physical inspection and production history review recommended."]
+
+
+def campaign_assessment(df) -> dict:
+    """Synthesise a campaign-level engineering assessment from the summary dataframe."""
+    import pandas as pd
+
+    n_images = len(df)
+    sev_counts = df["overall_severity"].value_counts().to_dict()
+    overall_risk = "low"
+    for level in ("critical", "high", "medium", "low"):
+        if sev_counts.get(level, 0) > 0:
+            overall_risk = level
+            break
+
+    # Failure type prevalence across images
+    ft_image_counts: dict[str, int] = {}
+    ft_defect_counts: dict[str, int] = {}
+    import json
+    for _, row in df.iterrows():
+        breakdown = json.loads(row.get("failure_type_breakdown_json") or "{}")
+        for ft, stats in breakdown.items():
+            ft_image_counts[ft] = ft_image_counts.get(ft, 0) + 1
+            ft_defect_counts[ft] = ft_defect_counts.get(ft, 0) + stats.get("count", 0)
+
+    # Observed conditions narrative
+    observed: list[str] = []
+    sorted_fts = sorted(ft_image_counts, key=ft_image_counts.get, reverse=True)
+    for ft in sorted_fts:
+        n_img = ft_image_counts[ft]
+        n_def = ft_defect_counts[ft]
+        pct_imgs = n_img / n_images * 100
+        label = ft.replace("_", " ").title()
+        observed.append(
+            f"{label} detected in {n_img} of {n_images} images ({pct_imgs:.0f}%), "
+            f"{n_def} total detection{'s' if n_def != 1 else ''}."
+        )
+
+    mean_erosion = float(df["erosion_pct"].mean())
+    max_erosion = float(df["erosion_pct"].max())
+    max_erosion_file = df.loc[df["erosion_pct"].idxmax(), "source_filename"]
+    observed.append(
+        f"Mean campaign erosion: {mean_erosion:.1f}%. "
+        f"Worst case: {max_erosion:.1f}% ({max_erosion_file})."
+    )
+
+    n_review = int(df["n_requires_review"].sum())
+    if n_review > 0:
+        observed.append(
+            f"{n_review} detection{'s' if n_review != 1 else ''} flagged for human review "
+            "due to classifier confidence below threshold."
+        )
+
+    # Recommended actions (synthesised from per-type recommendations)
+    seen_actions: list[str] = []
+    for ft in sorted_fts:
+        narrative = _FAILURE_NARRATIVES.get(ft, _FAILURE_NARRATIVES["unknown"])
+        for action in narrative["actions"]:
+            if action not in seen_actions:
+                seen_actions.append(action)
+
+    # Risk description
+    risk_descriptions = {
+        "critical": "CRITICAL — one or more screens show catastrophic damage. Immediate intervention required.",
+        "high": "HIGH — significant damage observed across multiple screens. Engineering review required.",
+        "medium": "MODERATE — damage is developing. Monitor sand production and plan inspection.",
+        "low": "LOW — minor damage observed. Continue scheduled monitoring.",
+    }
+
+    return {
+        "risk": _RISK_LABEL.get(overall_risk, overall_risk.upper()),
+        "risk_description": risk_descriptions.get(overall_risk, ""),
+        "n_images": n_images,
+        "sev_counts": sev_counts,
+        "observed_conditions": observed,
+        "failure_types_present": sorted_fts,
+        "potential_causes": potential_causes(sorted_fts),
+        "recommended_actions": seen_actions,
+        "mean_erosion": mean_erosion,
+        "max_erosion": max_erosion,
+    }
 
 
 def engineering_interpretation(

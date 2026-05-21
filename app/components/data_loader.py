@@ -39,15 +39,25 @@ def load_summary_df(db_path: str) -> pd.DataFrame:
                 q.overall_severity,
                 q.dominant_failure_type,
                 q.scale_calibrated,
+                q.pixels_per_mm,
                 q.failure_type_breakdown_json,
                 q.defects_json,
                 q.run_timestamp,
                 a.annotated_path,
                 a.panel_path,
-                p.preprocessed_png_path
+                p.preprocessed_png_path,
+                m.laplacian_variance,
+                m.mean_brightness,
+                m.brightness_std,
+                m.quality_flag,
+                m.well_name,
+                m.screen_type,
+                m.scale_reference_present,
+                m.source_path
             FROM quantification_reports q
             LEFT JOIN annotation_runs a ON q.image_id = a.image_id
             LEFT JOIN preprocessed_images p ON q.image_id = p.image_id
+            LEFT JOIN image_metadata m ON q.image_id = m.image_id
             ORDER BY q.source_filename
             """,
             conn,
