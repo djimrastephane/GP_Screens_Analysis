@@ -1,0 +1,25 @@
+# Target dimensions for model input (letterbox padded)
+target_size:
+  width: 640
+  height: 640
+
+# Letterbox fill value (neutral grey, same as YOLOv8 default)
+letterbox_fill: 114
+
+# CLAHE — applied when 'underexposed' flag is present
+clahe:
+  clip_limit: 2.0
+  tile_grid_size: [8, 8]
+
+# Denoising — applied when 'blurry' flag is present
+denoise:
+  h: 10               # filter strength for luminance
+  template_window: 7
+  search_window: 21
+
+# Normalisation mode: float32 (0-1) or imagenet
+normalisation: float32
+
+# Output formats to save after preprocessing
+save_png: true        # uint8 overlay-ready copy
+save_npy: true        # float32 array for direct model input
