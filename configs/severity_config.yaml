@@ -15,3 +15,11 @@ blur_threshold: 100.0
 min_resolution:
   width: 640
   height: 480
+
+# Scale calibration (optional)
+# Set pixels_per_mm when a physical reference is visible in the image.
+# Example: if the screen OD (140mm) spans 500px, pixels_per_mm = 3.57
+# Leave null to report pixel-only measurements.
+scale:
+  pixels_per_mm: null
+  reference: null    # free-text description, e.g. "screen OD 5.5in = 480px"
