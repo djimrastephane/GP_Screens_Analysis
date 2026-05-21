@@ -72,15 +72,27 @@ python scripts/batch_inference.py --input Image/ --output outputs/
 
 ## Dashboard Pages
 
-| Page | Audience | Content |
-|---|---|---|
-| Home | All | Campaign KPIs, erosion trends, severity distribution |
-| Gallery | All | Thumbnail grid of annotated screen images |
-| Analysis | Engineering | Per-image defect breakdown, 3-panel composite, failure type chart |
-| Quantification | Engineering | Erosion %, defect density, scatter plots, full results table |
-| Reports | All | Download per-image or campaign-level PDF reports |
-
 Role-based views are available — Engineering users see full technical detail; management views show summary KPIs and trends.
+
+### Home — Campaign Overview
+![Home](docs/screenshots/01_home.png)
+KPI metrics, erosion % by image, failure type distribution, and severity breakdown across the full campaign.
+
+### Gallery — Image Browser
+![Gallery](docs/screenshots/02_gallery.png)
+Thumbnail grid of annotated screen images, sortable by erosion % or severity, with per-card defect summary and review flags.
+
+### Analysis — Per-Image Detail
+![Analysis](docs/screenshots/03_analysis.png)
+Select any image to view the 3-panel composite (original / annotated overlay / binary mask), per-image KPIs, and failure type breakdown chart.
+
+### Quantification — Metrics & Charts
+![Quantification](docs/screenshots/04_quantification.png)
+Erosion % bar chart with severity thresholds, failure type distribution, erosion vs defect count scatter, and full tabular results.
+
+### Reports — PDF Downloads
+![Reports](docs/screenshots/05_reports.png)
+Download the campaign summary PDF or individual per-image annotated engineering reports as a ZIP archive.
 
 ---
 
