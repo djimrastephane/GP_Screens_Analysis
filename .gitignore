@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Generated pipeline outputs (large binary files)
+data/processed/preprocessed/
+outputs/masks/
+outputs/overlays/
+outputs/panels/
+outputs/reports/
+outputs/charts/
+
+# Keep the SQLite DB and summary CSV
+!data/processed/images.db
+!data/processed/quantification_summary.csv
+
+# Model weights (large)
+models/*.pth
+models/*.pt
+models/*.onnx
