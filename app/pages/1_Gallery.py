@@ -73,7 +73,7 @@ for row_start in range(0, len(df), cols_per_row):
             # Annotated thumbnail
             ann_path = rec.get("annotated_path")
             if ann_path and Path(ann_path).exists():
-                st.image(str(ann_path), use_container_width=True)
+                st.image(str(ann_path), use_column_width=True)
             else:
                 st.info("Image not available")
 

@@ -34,7 +34,7 @@ def show_three_panel(
         with col:
             img = _load(path)
             if img:
-                st.image(img, caption=caption, use_container_width=True)
+                st.image(img, caption=caption, use_column_width=True)
             else:
                 st.info(f"{caption}: not available")
 
@@ -43,7 +43,7 @@ def show_annotated(path: str | None, caption: str = "") -> None:
     """Display the annotated overlay full-width."""
     img = _load(path)
     if img:
-        st.image(img, caption=caption, use_container_width=True)
+        st.image(img, caption=caption, use_column_width=True)
     else:
         st.info("Annotated image not available")
 
@@ -52,7 +52,7 @@ def show_panel(path: str | None) -> None:
     """Display the 3-panel composite image (Original | Annotated | Mask)."""
     img = _load(path)
     if img:
-        st.image(img, use_container_width=True)
+        st.image(img, use_column_width=True)
     else:
         st.info("Panel image not available")
 

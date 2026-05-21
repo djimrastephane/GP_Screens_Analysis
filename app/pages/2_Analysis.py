@@ -67,7 +67,7 @@ if role == "Engineering":
         )
 else:
     if rec.get("annotated_path") and Path(rec["annotated_path"]).exists():
-        st.image(str(rec["annotated_path"]), use_container_width=True)
+        st.image(str(rec["annotated_path"]), use_column_width=True)
         st.caption(f"Annotated overlay — {selected}")
 
 st.divider()
