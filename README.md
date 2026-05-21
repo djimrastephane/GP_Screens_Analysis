@@ -76,7 +76,7 @@ Role-based views are available — Engineering users see full technical detail; 
 
 ### Home — Campaign Overview
 ![Home](docs/screenshots/01_home.png)
-KPI metrics, erosion % by image, failure type distribution, and severity breakdown across the full campaign.
+Campaign KPIs (images analysed, mean and max erosion %, total defects, review flags), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. Erosion % tooltip shows the exact formula.
 
 ### Gallery — Image Browser
 ![Gallery](docs/screenshots/02_gallery.png)
@@ -84,11 +84,11 @@ Thumbnail grid of annotated screen images, sortable by erosion % or severity, wi
 
 ### Analysis — Per-Image Detail
 ![Analysis](docs/screenshots/03_analysis.png)
-Select any image to view the 3-panel composite (original / annotated overlay / binary mask), per-image KPIs, and failure type breakdown chart.
+Six KPI cards per image: erosion % (with formula tooltip), defect count, severity (with threshold basis tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds an auto-generated assessment — risk level, likely mechanism, plain-English interpretation, and recommended actions. Defect size summary (largest defect, average defect, largest diameter) sits above the per-defect table. Severity threshold basis and recommended actions are in expandable panels.
 
 ### Quantification — Metrics & Charts
 ![Quantification](docs/screenshots/04_quantification.png)
-Erosion % bar chart with severity thresholds, failure type distribution, erosion vs defect count scatter, and full tabular results.
+Erosion % bar chart with labelled severity thresholds and full metric definition in the caption. Charts include failure type distribution and erosion vs defect count scatter. Full metrics table adds largest defect %, average defect diameter, and mean confidence columns alongside defect count.
 
 ### Reports — PDF Downloads
 ![Reports](docs/screenshots/05_reports.png)
@@ -119,11 +119,15 @@ Place source images in `Image/` or `data/raw/`. Do not modify source files — t
 
 ## Key Metrics
 
-- **Erosion %** — defect area as a fraction of detected screen region
-- **Defect count** — number of distinct failure locations per image
-- **Severity score** — low / medium / high / critical, confidence-scored
-- **Failure type distribution** — breakdown by failure mode across campaign
-- **Screens requiring review** — % flagged for human confirmation
+| Metric | Definition |
+|---|---|
+| Erosion % | Total defect pixel area ÷ visible screen pixel area × 100. Model estimate of damaged area fraction — not a direct measurement of metal loss or open-flow area increase. |
+| Severity | < 5 % → Low · 5–20 % → Medium · 20–50 % → High · ≥ 50 % → Critical. Screen collapse and complete plugging escalate one level regardless of area. |
+| Mean confidence | Average model confidence across all detections for the image (0–100 %). Detections below 70 % are flagged for human review. |
+| Largest defect % | Area of the single largest detected defect as % of visible screen area. More indicative of breach severity than defect count alone. |
+| Avg defect diameter | Mean equivalent circular diameter across all detections (pixels). Converts to mm when `pixels_per_mm` is calibrated. |
+| Defect count | Number of distinct failure locations detected per image. |
+| Failure type distribution | Breakdown by failure mode across the full campaign. |
 
 ---
 
