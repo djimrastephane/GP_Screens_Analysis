@@ -40,6 +40,7 @@ def load_summary_df(db_path: str) -> pd.DataFrame:
                 q.dominant_failure_type,
                 q.scale_calibrated,
                 q.failure_type_breakdown_json,
+                q.defects_json,
                 q.run_timestamp,
                 a.annotated_path,
                 a.panel_path,
@@ -59,6 +60,25 @@ def load_summary_df(db_path: str) -> pd.DataFrame:
         return stats.get("count", 0)
 
     q["dominant_count"] = q.apply(_dominant_count, axis=1)
+
+    # Aggregate defect-level stats: mean confidence, largest and average defect size
+    def _defect_stats(defects_json: str) -> dict:
+        defects = json.loads(defects_json or "[]")
+        if not defects:
+            return {"mean_confidence": None, "max_defect_area_pct": None,
+                    "avg_defect_diameter_px": None, "max_defect_diameter_px": None}
+        confidences = [d.get("confidence", 0) for d in defects]
+        areas = [d.get("defect_area_pct_of_screen", 0) for d in defects]
+        diameters = [d.get("equivalent_diameter_px", 0) for d in defects]
+        return {
+            "mean_confidence": sum(confidences) / len(confidences),
+            "max_defect_area_pct": max(areas),
+            "avg_defect_diameter_px": sum(diameters) / len(diameters),
+            "max_defect_diameter_px": max(diameters),
+        }
+
+    stats = q["defects_json"].apply(_defect_stats).apply(pd.Series)
+    q = pd.concat([q.drop(columns=["defects_json"]), stats], axis=1)
 
     severity_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
     q["severity_order"] = q["overall_severity"].map(severity_order).fillna(0)

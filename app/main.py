@@ -13,6 +13,7 @@ from app.components.data_loader import (
     load_summary_df,
 )
 from app.components.charts import erosion_bar, failure_type_bar, severity_pie
+from app.components.interpretation import EROSION_PCT_DEFINITION
 
 st.set_page_config(
     page_title="GP Screen Failure Analysis",
@@ -47,11 +48,13 @@ k1, k2, k3, k4, k5 = st.columns(5)
 with k1:
     st.metric("Images analysed", len(df))
 with k2:
-    st.metric("Mean erosion %", f"{df['erosion_pct'].mean():.1f}%")
+    st.metric("Mean erosion %", f"{df['erosion_pct'].mean():.1f}%",
+              help=EROSION_PCT_DEFINITION)
 with k3:
     max_row = df.loc[df["erosion_pct"].idxmax()]
     st.metric("Max erosion %", f"{max_row['erosion_pct']:.1f}%",
-              delta=max_row["source_filename"], delta_color="off")
+              delta=max_row["source_filename"], delta_color="off",
+              help=EROSION_PCT_DEFINITION)
 with k4:
     st.metric("Total defects", int(df["n_defects"].sum()))
 with k5:

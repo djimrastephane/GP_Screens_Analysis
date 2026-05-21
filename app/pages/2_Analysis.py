@@ -12,6 +12,11 @@ import streamlit as st
 from app.components.data_loader import get_db_path, load_summary_df
 from app.components.charts import failure_type_breakdown_pie
 from app.components.image_viewer import show_three_panel, show_panel
+from app.components.interpretation import (
+    engineering_interpretation,
+    EROSION_PCT_DEFINITION,
+    _SEVERITY_BASIS as SEVERITY_BASIS,
+)
 
 st.set_page_config(page_title="Analysis", page_icon="🔍", layout="wide")
 
@@ -33,19 +38,26 @@ rec = df[df["source_filename"] == selected].iloc[0]
 st.divider()
 
 # ---- Key metrics row ----
-k1, k2, k3, k4, k5 = st.columns(5)
+k1, k2, k3, k4, k5, k6 = st.columns(6)
 sev_emoji = {"low": "🟢", "medium": "🟡", "high": "🔴", "critical": "🔴"}
 with k1:
-    st.metric("Erosion %", f"{rec['erosion_pct']:.1f}%")
+    st.metric("Erosion %", f"{rec['erosion_pct']:.1f}%", help=EROSION_PCT_DEFINITION)
 with k2:
     st.metric("Defects", int(rec["n_defects"]))
 with k3:
     sev = rec["overall_severity"]
-    st.metric("Severity", f"{sev_emoji.get(sev,'')} {sev.capitalize()}")
+    st.metric("Severity", f"{sev_emoji.get(sev,'')} {sev.capitalize()}",
+              help=SEVERITY_BASIS)
 with k4:
     st.metric("Dominant Type",
               rec["dominant_failure_type"].replace("_", " ").title())
 with k5:
+    conf = rec.get("mean_confidence")
+    st.metric("Mean Confidence",
+              f"{conf:.0%}" if conf is not None else "N/A",
+              help="Mean model confidence across all detections for this image (0–100%). "
+                   "Values below 70% indicate uncertain detections that warrant human review.")
+with k6:
     n_rev = int(rec["n_requires_review"])
     st.metric("Need Review", n_rev, delta="⚠" if n_rev else "✓",
               delta_color="inverse" if n_rev else "off")
@@ -71,6 +83,40 @@ else:
         st.caption(f"Annotated overlay — {selected}")
 
 st.divider()
+
+# ---- Engineering interpretation (Engineering only) ----
+if role == "Engineering":
+    interp = engineering_interpretation(
+        dominant_failure_type=rec["dominant_failure_type"],
+        erosion_pct=float(rec["erosion_pct"]),
+        severity=rec["overall_severity"],
+        n_requires_review=int(rec["n_requires_review"]),
+        mean_confidence=rec.get("mean_confidence"),
+    )
+
+    risk_colours = {"LOW": "green", "MODERATE": "orange", "HIGH": "red", "CRITICAL": "darkred"}
+    risk = interp["risk"]
+    colour = risk_colours.get(risk, "grey")
+
+    st.subheader("Engineering Assessment")
+    st.markdown(
+        f"**Risk:** <span style='color:{colour};font-weight:700'>{risk}</span> &nbsp;|&nbsp; "
+        f"**Likely mechanism:** {interp['mechanism']}",
+        unsafe_allow_html=True,
+    )
+    st.markdown(interp["detail"])
+
+    if interp["confidence_note"]:
+        st.caption(interp["confidence_note"])
+
+    with st.expander("Recommended actions"):
+        for action in interp["actions"]:
+            st.markdown(f"- {action}")
+
+    with st.expander("Severity threshold basis"):
+        st.caption(interp["severity_basis"])
+
+    st.divider()
 
 # ---- Failure type breakdown + chart ----
 col_chart, col_table = st.columns([1, 2])
@@ -110,6 +156,23 @@ if role == "Engineering":
 
     if row:
         defects = json.loads(row[0] or "[]")
+
+        # Defect size summary above the table
+        if defects:
+            areas = [d.get("defect_area_pct_of_screen", 0) for d in defects]
+            diameters = [d.get("equivalent_diameter_px", 0) for d in defects]
+            ds1, ds2, ds3 = st.columns(3)
+            with ds1:
+                st.metric("Largest defect", f"{max(areas):.2f}% screen area",
+                          help="Area of the single largest detected defect as % of visible screen area.")
+            with ds2:
+                st.metric("Avg defect size", f"{sum(areas)/len(areas):.2f}% screen area",
+                          help="Mean defect area across all detections.")
+            with ds3:
+                st.metric("Largest diameter", f"{max(diameters):.0f} px",
+                          help="Equivalent circular diameter of the largest defect. "
+                               "Set pixels_per_mm in configs/severity_config.yaml for mm conversion.")
+
         det_rows = []
         for d in defects:
             det_rows.append({
