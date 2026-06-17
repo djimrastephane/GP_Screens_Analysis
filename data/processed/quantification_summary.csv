@@ -1,0 +1,10 @@
+image_id,source_filename,n_defects,erosion_pct,composite_defect_area_px,screen_region_area_px,defect_density_per_10k_px,dominant_failure_type,overall_severity,n_requires_review,scale_calibrated
+picture_1_37c48e36,Picture 1.jpg,13,10.9,33624,308480,0.4214,erosion_hole,low,1,False
+picture_2_12bf9dd2,Picture 2.jpg,10,25.89,79859,308480,0.3242,corrosion_pitting,medium,0,False
+picture_3_bdbbef7e,Picture 3.jpg,11,29.45,90847,308480,0.3566,erosion_hole,medium,1,False
+picture_4_a9794daf,Picture 4.jpg,10,10.66,26609,249600,0.4006,corrosion_pitting,low,2,False
+picture_5_62ad1f10,Picture 5.jpg,13,8.46,25995,307200,0.4232,erosion_hole,low,2,False
+picture_6_0218f0bb,Picture 6.jpg,7,8.42,26024,309120,0.2264,corrosion_pitting,low,3,False
+picture_7_9b856b80,Picture_7.png,3,9.8,27045,275840,0.1088,mechanical_damage,low,2,False
+picture_7_ba780713,Picture 7.jpg,2,10.57,22192,209920,0.0953,corrosion_pitting,low,0,False
+picture_8_967fcb44,Picture 8.jpg,10,14.43,36025,249600,0.4006,corrosion_pitting,low,1,False

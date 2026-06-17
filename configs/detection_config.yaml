@@ -1,0 +1,56 @@
+# Detection pipeline configuration
+# Edit this file to tune detection sensitivity without code changes.
+# Run scripts/batch_detect.py after any change to rebuild detections.
+
+detector: contour   # options: contour | yolo
+
+# --- Morphological pre-processing ---
+# close_kernel_size: merges nearby wire gaps into background before thresholding.
+#   Larger → smoother background, but may swallow small pits. Range: 11–31 (odd).
+close_kernel_size: 21
+
+# open_kernel_size: removes residual wire-gap noise after thresholding.
+#   Larger → fewer false positives, but may erode real small damage. Range: 3–9 (odd).
+open_kernel_size: 5
+
+# --- Adaptive threshold ---
+# adaptive_block_size: neighbourhood size for local threshold computation (odd).
+#   Smaller → more local contrast sensitivity. Range: 31–71.
+adaptive_block_size: 51
+
+# adaptive_c: constant subtracted from local mean. Lower = more sensitive.
+#   Decrease to detect fainter or shallow damage. Range: 3–12.
+adaptive_c: 6
+
+# --- Blob size limits (as fraction of total image area) ---
+# min_area_frac: smallest detectable defect. 0.001 = 0.1% of image.
+#   Decrease to catch smaller pits; increases false positives.
+min_area_frac: 0.001
+
+# max_area_frac: largest single detectable defect. 0.40 = 40% of image.
+#   Increase if large damage areas are being split or missed.
+max_area_frac: 0.40
+
+# --- Shape filters ---
+# Aspect ratio (width/height) limits for accepted blobs.
+min_aspect: 0.12
+max_aspect: 7.0
+
+# --- Non-maximum suppression ---
+# nms_iou: within-class IoU threshold. Lower = stricter (fewer overlapping boxes
+#   of the same class). Range: 0.25–0.55.
+nms_iou: 0.35
+
+# cross_iou: cross-class IoU threshold. Boxes from different detector strategies
+#   (dark_blob vs colour_anomaly) on the same region are merged by keeping the
+#   higher-confidence one. Lower = more aggressive cross-class suppression.
+cross_iou: 0.50
+
+# containment_threshold: fraction of a smaller box's area that must lie inside a
+#   larger box before the smaller is suppressed. 0.80 = 80% contained → suppress.
+containment_threshold: 0.80
+
+# --- Colour anomaly detection ---
+# run_color_anomaly: whether to run the rust/corrosion HSV colour detector.
+#   Disable if colour detections are causing too many false positives.
+run_color_anomaly: true
