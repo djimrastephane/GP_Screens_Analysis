@@ -13,7 +13,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.detection.base import Detection, DetectionResult
-from src.detection.nms import iou, nms
+from src.detection.nms import iou, nms, nms_global
 from src.detection.contour import ContourDetector, ContourConfig, _detect_dark_blobs, _detect_color_anomalies
 from src.detection.store import ensure_table, upsert_detection_run, get_detection_runs
 
@@ -129,6 +129,19 @@ class TestNMS:
         b = _make_detection(5, 5, 95, 95, conf=0.8, cls=1)
         result = nms([a, b], iou_threshold=0.4)
         assert len(result) == 2
+
+
+class TestNMSGlobal:
+    def test_identical_box_tie_keeps_higher_confidence_class(self):
+        # Two different-class detections on the exact same box (e.g. a dark-blob
+        # hit and a rust-color hit on the same patch). The lower-confidence one
+        # used to win just because its class_id sorted first — regression for
+        # GP_Screens_Analysis#1.
+        dark = _make_detection(250, 250, 370, 370, conf=0.6868, cls=0, name="dark_blob", src="contour_dark")
+        color = _make_detection(250, 250, 370, 370, conf=0.6905, cls=1, name="color_anomaly", src="contour_color")
+        result = nms_global([dark, color])
+        assert len(result) == 1
+        assert result[0].source == "contour_color"
 
 
 # ---------------------------------------------------------------------------
