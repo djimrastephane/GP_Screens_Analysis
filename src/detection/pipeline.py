@@ -40,17 +40,19 @@ def _load_detector(config: dict) -> BaseDetector:
             device=config.get("device", "cpu"),
         )
 
-    # Default: contour detector
+    # Default: contour detector — values fall back to ContourConfig dataclass defaults
     cfg = ContourConfig(
         close_kernel_size=config.get("close_kernel_size", 21),
         open_kernel_size=config.get("open_kernel_size", 5),
         adaptive_block_size=config.get("adaptive_block_size", 51),
-        adaptive_c=config.get("adaptive_c", 8),
-        min_area_frac=config.get("min_area_frac", 0.002),
-        max_area_frac=config.get("max_area_frac", 0.20),
-        min_aspect=config.get("min_aspect", 0.15),
-        max_aspect=config.get("max_aspect", 6.5),
-        nms_iou=config.get("nms_iou", 0.4),
+        adaptive_c=config.get("adaptive_c", 6),
+        min_area_frac=config.get("min_area_frac", 0.001),
+        max_area_frac=config.get("max_area_frac", 0.40),
+        min_aspect=config.get("min_aspect", 0.12),
+        max_aspect=config.get("max_aspect", 7.0),
+        nms_iou=config.get("nms_iou", 0.35),
+        cross_iou=config.get("cross_iou", 0.50),
+        containment_threshold=config.get("containment_threshold", 0.80),
         run_color_anomaly=config.get("run_color_anomaly", True),
     )
     return ContourDetector(cfg)

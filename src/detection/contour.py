@@ -18,18 +18,19 @@ import cv2
 import numpy as np
 
 from .base import BaseDetector, Detection
-from .nms import nms
+from .nms import nms_global
 
 # Class IDs used by this detector
 _CLS_DARK_BLOB = 0
 _CLS_COLOR_ANOMALY = 1
 _CLASS_NAMES = {_CLS_DARK_BLOB: "dark_blob", _CLS_COLOR_ANOMALY: "color_anomaly"}
 
-# HSV hue ranges for rust/corrosion: orange-red (10–30°) and red wrap-around
-_RUST_LOWER1 = np.array([5, 80, 50], dtype=np.uint8)
-_RUST_UPPER1 = np.array([30, 255, 220], dtype=np.uint8)
-_RUST_LOWER2 = np.array([160, 80, 50], dtype=np.uint8)
-_RUST_UPPER2 = np.array([180, 255, 220], dtype=np.uint8)
+# HSV hue ranges for rust/corrosion: orange-red (5–35°) and red wrap-around.
+# Saturation min lowered to 50 to catch faded/weathered corrosion patches.
+_RUST_LOWER1 = np.array([5, 50, 40], dtype=np.uint8)
+_RUST_UPPER1 = np.array([35, 255, 230], dtype=np.uint8)
+_RUST_LOWER2 = np.array([155, 50, 40], dtype=np.uint8)
+_RUST_UPPER2 = np.array([180, 255, 230], dtype=np.uint8)
 
 
 @dataclass
@@ -40,17 +41,21 @@ class ContourConfig:
     open_kernel_size: int = 5
     # Adaptive threshold block size (must be odd)
     adaptive_block_size: int = 51
-    # Adaptive threshold constant (subtracted from mean)
-    adaptive_c: int = 8
-    # Minimum blob area as fraction of image area
-    min_area_frac: float = 0.002    # 0.2% of image
-    # Maximum blob area as fraction of image area
-    max_area_frac: float = 0.20     # 20% of image
+    # Adaptive threshold constant (subtracted from mean) — lower = more sensitive
+    adaptive_c: int = 6
+    # Minimum blob area as fraction of image area — 0.1% catches small pits
+    min_area_frac: float = 0.001
+    # Maximum blob area as fraction of image area — 40% allows large damage regions
+    max_area_frac: float = 0.40
     # Aspect ratio limits (width/height)
-    min_aspect: float = 0.15
-    max_aspect: float = 6.5
-    # NMS IoU threshold
-    nms_iou: float = 0.4
+    min_aspect: float = 0.12
+    max_aspect: float = 7.0
+    # Within-class NMS IoU threshold
+    nms_iou: float = 0.35
+    # Cross-class IoU threshold for global NMS
+    cross_iou: float = 0.50
+    # Containment threshold: suppress inner if this fraction is inside a larger box
+    containment_threshold: float = 0.80
     # Whether to run colour-anomaly strategy
     run_color_anomaly: bool = True
 
@@ -192,4 +197,9 @@ class ContourDetector(BaseDetector):
                     source="contour_color",
                 ))
 
-        return nms(detections, iou_threshold=self._cfg.nms_iou)
+        return nms_global(
+            detections,
+            iou_threshold=self._cfg.nms_iou,
+            cross_iou_threshold=self._cfg.cross_iou,
+            containment_threshold=self._cfg.containment_threshold,
+        )

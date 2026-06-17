@@ -30,13 +30,22 @@ def main() -> None:
     from src.detection import detect_all, get_detection_runs, ensure_table
     from src.ingestion.database import init_db
 
-    detector_config = {
-        "detector": args.detector,
-        "weights_path": args.weights,
-        "min_area_frac": args.min_area,
-        "max_area_frac": args.max_area,
-        "run_color_anomaly": not args.no_color,
-    }
+    # Load detection_config.yaml if present; CLI args override it
+    import yaml
+    cfg_path = project_root / "configs" / "detection_config.yaml"
+    detector_config: dict = {}
+    if cfg_path.exists():
+        with cfg_path.open() as f:
+            detector_config = yaml.safe_load(f) or {}
+
+    # CLI overrides
+    detector_config["detector"] = args.detector
+    if args.weights:
+        detector_config["weights_path"] = args.weights
+    detector_config["min_area_frac"] = args.min_area
+    detector_config["max_area_frac"] = args.max_area
+    if args.no_color:
+        detector_config["run_color_anomaly"] = False
 
     summary = detect_all(db_path, detector_config=detector_config)
 
