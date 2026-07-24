@@ -6,6 +6,10 @@ from .sam import SAMSegmenter
 from .overlay import draw_overlay
 from .pipeline import segment_all, SegmentationSummary
 from .store import ensure_table, get_segmentation_runs, upsert_segmentation_run
+from .evaluation import (
+    polygons_to_mask, mask_iou, mask_dice, score_masks,
+    ImageMaskResult, aggregate_mask_metrics, AggregateMaskMetrics,
+)
 
 __all__ = [
     "BaseSegmenter", "SegmentationMask", "SegmentationResult",
@@ -14,4 +18,6 @@ __all__ = [
     "draw_overlay",
     "segment_all", "SegmentationSummary",
     "ensure_table", "get_segmentation_runs", "upsert_segmentation_run",
+    "polygons_to_mask", "mask_iou", "mask_dice", "score_masks",
+    "ImageMaskResult", "aggregate_mask_metrics", "AggregateMaskMetrics",
 ]
