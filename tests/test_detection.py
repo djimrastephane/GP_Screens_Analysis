@@ -163,7 +163,7 @@ class TestDarkBlobDetection:
         cfg = ContourConfig(min_area_frac=0.001)
         h, w = mesh_with_hole.shape[:2]
         blobs = _detect_dark_blobs(mesh_with_hole, cfg)
-        for x1, y1, x2, y2, _ in blobs:
+        for x1, y1, x2, y2, _area, _conf in blobs:
             assert 0 <= x1 < x2 <= w
             assert 0 <= y1 < y2 <= h
 

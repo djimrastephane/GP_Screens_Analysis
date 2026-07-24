@@ -8,6 +8,12 @@ Two complementary strategies:
 
 Both strategies use morphological operations to suppress the wire-wrap
 repeating pattern before finding candidate damage contours.
+
+Confidence is a weighted blend of three independent classical-CV signals —
+saturating blob size, local contrast (dark blobs) or colour saturation
+(rust patches), and shape solidity (contour area / convex-hull area) — not
+a calibrated probability. It's a relative ranking signal for triage, not a
+statistically validated likelihood.
 """
 
 from __future__ import annotations
@@ -60,9 +66,20 @@ class ContourConfig:
     run_color_anomaly: bool = True
 
 
-def _confidence_from_area(area_px: int, img_area: int) -> float:
-    """Heuristic: blobs covering ~5% of image get confidence=1.0; scales linearly."""
+def _area_score(area_px: int, img_area: int) -> float:
+    """Saturating size signal: blobs covering ~5% of image area score 1.0."""
     return min(1.0, (area_px / img_area) / 0.05)
+
+
+def _solidity(cnt: np.ndarray, area: float) -> float:
+    """Contour area / convex-hull area.
+
+    Real damage blobs tend to be compact; ragged noise fragments that still
+    pass the area/aspect filters have a much lower ratio, so this catches
+    false positives that pure area can't distinguish.
+    """
+    hull_area = cv2.contourArea(cv2.convexHull(cnt))
+    return area / hull_area if hull_area > 0 else 0.0
 
 
 def _detect_dark_blobs(
@@ -103,6 +120,9 @@ def _detect_dark_blobs(
     img_area = h * w
     min_area = cfg.min_area_frac * img_area
     max_area = cfg.max_area_frac * img_area
+    # Background reference for contrast scoring: median over the whole frame
+    # is robust to the blob itself (which is a small minority of pixels).
+    bg_median = float(np.median(gray))
 
     results = []
     for cnt in contours:
@@ -115,7 +135,18 @@ def _detect_dark_blobs(
         ar = bw / bh
         if not (cfg.min_aspect <= ar <= cfg.max_aspect):
             continue
-        results.append((x, y, x + bw, y + bh, int(area)))
+
+        blob_mask = np.zeros((bh, bw), dtype=np.uint8)
+        cv2.drawContours(blob_mask, [cnt - [x, y]], -1, 255, thickness=cv2.FILLED)
+        blob_mean = cv2.mean(gray[y:y + bh, x:x + bw], mask=blob_mask)[0]
+        contrast_score = min(1.0, max(0.0, (bg_median - blob_mean) / bg_median)) if bg_median > 0 else 0.0
+
+        confidence = (
+            0.4 * _area_score(area, img_area)
+            + 0.35 * contrast_score
+            + 0.25 * _solidity(cnt, area)
+        )
+        results.append((x, y, x + bw, y + bh, int(area), min(1.0, max(0.0, confidence))))
 
     return results
 
@@ -140,6 +171,7 @@ def _detect_color_anomalies(
     img_area = h * w
     min_area = cfg.min_area_frac * img_area
     max_area = cfg.max_area_frac * img_area
+    saturation = hsv[:, :, 1]
 
     results = []
     for cnt in contours:
@@ -147,7 +179,20 @@ def _detect_color_anomalies(
         if not (min_area <= area <= max_area):
             continue
         x, y, bw, bh = cv2.boundingRect(cnt)
-        results.append((x, y, x + bw, y + bh, int(area)))
+
+        blob_mask = np.zeros((bh, bw), dtype=np.uint8)
+        cv2.drawContours(blob_mask, [cnt - [x, y]], -1, 255, thickness=cv2.FILLED)
+        mean_sat = cv2.mean(saturation[y:y + bh, x:x + bw], mask=blob_mask)[0]
+        # Weakly-saturated pixels near the HSV lower bound (50) are a marginal
+        # match to the rust range; strongly saturated patches are a confident one.
+        saturation_score = min(1.0, max(0.0, (mean_sat - 50) / (255 - 50)))
+
+        confidence = (
+            0.4 * _area_score(area, img_area)
+            + 0.3 * _solidity(cnt, area)
+            + 0.3 * saturation_score
+        )
+        results.append((x, y, x + bw, y + bh, int(area), min(1.0, max(0.0, confidence))))
 
     return results
 
@@ -172,8 +217,7 @@ class ContourDetector(BaseDetector):
 
         detections: list[Detection] = []
 
-        for x1, y1, x2, y2, area in _detect_dark_blobs(img, self._cfg):
-            conf = _confidence_from_area(area, img_area)
+        for x1, y1, x2, y2, area, conf in _detect_dark_blobs(img, self._cfg):
             detections.append(Detection(
                 x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2),
                 confidence=conf,
@@ -185,8 +229,7 @@ class ContourDetector(BaseDetector):
             ))
 
         if self._cfg.run_color_anomaly:
-            for x1, y1, x2, y2, area in _detect_color_anomalies(img, self._cfg):
-                conf = _confidence_from_area(area, img_area)
+            for x1, y1, x2, y2, area, conf in _detect_color_anomalies(img, self._cfg):
                 detections.append(Detection(
                     x1=float(x1), y1=float(y1), x2=float(x2), y2=float(y2),
                     confidence=conf,
