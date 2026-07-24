@@ -1,0 +1,7 @@
+{
+  "source_filename": "Picture 1.jpg",
+  "boxes": [
+    {"x1": 307, "y1": 186, "x2": 435, "y2": 333, "failure_type": "erosion_hole"},
+    {"x1": 90, "y1": 102, "x2": 563, "y2": 435, "failure_type": "corrosion_pitting"}
+  ]
+}

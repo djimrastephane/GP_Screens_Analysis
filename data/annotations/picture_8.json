@@ -1,0 +1,6 @@
+{
+  "source_filename": "Picture 8.jpg",
+  "boxes": [
+    {"x1": 237, "y1": 218, "x2": 333, "y2": 326, "failure_type": "erosion_hole"}
+  ]
+}

@@ -34,6 +34,7 @@ outputs/overlays/
 outputs/panels/
 outputs/reports/
 outputs/charts/
+data/annotations/previews/
 
 # Keep the SQLite DB and summary CSV
 !data/processed/images.db
