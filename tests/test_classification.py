@@ -16,7 +16,10 @@ from src.classification.severity import area_to_severity, worst_severity
 from src.classification.features import extract_features
 from src.classification.rules import classify_features
 from src.classification.classifier import RuleBasedClassifier
-from src.classification.store import ensure_table, upsert_classification_run, get_classification_runs
+from src.classification.store import (
+    ensure_table, upsert_classification_run, get_classification_runs,
+    set_reviewed, get_review_status,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -298,3 +301,47 @@ class TestClassificationStore:
             runs = get_classification_runs(session)
         assert len(runs) == 1
         assert runs[0].overall_severity == "critical"
+
+
+# ---------------------------------------------------------------------------
+# review status
+# ---------------------------------------------------------------------------
+
+class TestReviewStatus:
+    def test_set_reviewed_creates_record(self, tmp_db):
+        SessionFactory = ensure_table(tmp_db)
+        with SessionFactory() as session:
+            set_reviewed(session, "img_a", 0, reviewed=True, note="checked")
+            session.commit()
+        with SessionFactory() as session:
+            rows = get_review_status(session)
+        assert len(rows) == 1
+        assert rows[0].id == "img_a__0"
+        assert rows[0].reviewed is True
+        assert rows[0].note == "checked"
+        assert rows[0].reviewed_at is not None
+
+    def test_set_reviewed_updates_existing(self, tmp_db):
+        SessionFactory = ensure_table(tmp_db)
+        with SessionFactory() as session:
+            set_reviewed(session, "img_a", 0, reviewed=True)
+            session.commit()
+        with SessionFactory() as session:
+            set_reviewed(session, "img_a", 0, reviewed=False)
+            session.commit()
+        with SessionFactory() as session:
+            rows = get_review_status(session)
+        assert len(rows) == 1
+        assert rows[0].reviewed is False
+        assert rows[0].reviewed_at is None
+
+    def test_filter_by_image_id(self, tmp_db):
+        SessionFactory = ensure_table(tmp_db)
+        with SessionFactory() as session:
+            set_reviewed(session, "img_a", 0, reviewed=True)
+            set_reviewed(session, "img_b", 0, reviewed=True)
+            session.commit()
+        with SessionFactory() as session:
+            rows = get_review_status(session, image_id="img_a")
+        assert len(rows) == 1
+        assert rows[0].image_id == "img_a"

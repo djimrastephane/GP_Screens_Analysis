@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import Boolean, Column, Float, Integer, String, Text, create_engine
@@ -66,3 +67,44 @@ def get_classification_runs(
     if image_id:
         q = q.filter(ClassificationRunRecord.image_id == image_id)
     return q.order_by(ClassificationRunRecord.source_filename).all()
+
+
+class ReviewStatus(Base):
+    """Human review decision for one detection, independent of classifier re-runs."""
+    __tablename__ = "review_status"
+
+    id = Column(String, primary_key=True)   # f"{image_id}__{detection_index}"
+    image_id = Column(String, nullable=False, index=True)
+    detection_index = Column(Integer, nullable=False)
+    reviewed = Column(Boolean, default=False, nullable=False)
+    note = Column(Text, nullable=True)
+    reviewed_at = Column(String, nullable=True)   # ISO-8601 UTC, set when reviewed=True
+
+
+def set_reviewed(
+    session: Session,
+    image_id: str,
+    detection_index: int,
+    reviewed: bool = True,
+    note: str | None = None,
+) -> ReviewStatus:
+    rid = f"{image_id}__{detection_index}"
+    record = session.get(ReviewStatus, rid)
+    if record is None:
+        record = ReviewStatus(id=rid, image_id=image_id, detection_index=detection_index)
+        session.add(record)
+    record.reviewed = reviewed
+    if note is not None:
+        record.note = note
+    record.reviewed_at = datetime.now(timezone.utc).isoformat() if reviewed else None
+    session.flush()
+    return record
+
+
+def get_review_status(
+    session: Session, image_id: str | None = None
+) -> list[ReviewStatus]:
+    q = session.query(ReviewStatus)
+    if image_id:
+        q = q.filter(ReviewStatus.image_id == image_id)
+    return q.all()

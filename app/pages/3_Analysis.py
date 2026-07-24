@@ -10,7 +10,8 @@ import pandas as pd
 import streamlit as st
 from sqlalchemy import create_engine, text
 
-from app.components.data_loader import get_db_path, load_summary_df
+from app.components.nav import render_sidebar_header
+from app.components.data_loader import get_db_path, load_summary_df, load_review_status_df
 from app.components.charts import failure_type_breakdown_pie
 from app.components.image_viewer import show_three_panel, show_panel
 from app.components.interpretation import (
@@ -19,21 +20,22 @@ from app.components.interpretation import (
     EROSION_PCT_DEFINITION,
     _SEVERITY_BASIS as SEVERITY_BASIS,
 )
+from src.classification.store import ensure_table as ensure_classification_tables, set_reviewed
 
 st.set_page_config(page_title="Analysis", page_icon="🔍", layout="wide")
 
-with st.sidebar:
-    st.title("GP Screen Analysis")
-    st.divider()
-    role = st.radio("View mode", ["Management", "Engineering"], index=1)
+role = render_sidebar_header()
 
 db_path = get_db_path()
+ensure_classification_tables(db_path)
 df = load_summary_df(db_path)
 
 st.title("Per-Image Analysis")
 
 filenames = df["source_filename"].tolist()
-selected = st.selectbox("Select image", filenames, index=0)
+preselect = st.query_params.get("image")
+default_idx = filenames.index(preselect) if preselect in filenames else 0
+selected = st.selectbox("Select image", filenames, index=default_idx)
 rec = df[df["source_filename"] == selected].iloc[0]
 
 st.divider()
@@ -323,9 +325,16 @@ if role == "Engineering":
                     f"Mean pit diameter: {sum(diameters_px)/len(diameters_px)/ppm_val:.1f} mm"
                 )
 
+        review_df = load_review_status_df(db_path)
+        reviewed_map: dict[int, bool] = {}
+        if not review_df.empty:
+            for _, r in review_df[review_df["image_id"] == rec["image_id"]].iterrows():
+                reviewed_map[int(r["detection_index"])] = bool(r["reviewed"])
+
         det_rows = []
         for d in defects:
             row_d: dict = {
+                "id": f"{rec['image_id']}__{d['detection_index']}",
                 "#": d["detection_index"],
                 "Failure Type": d["failure_type"].replace("_", " ").title(),
                 "Severity": d["severity"].capitalize(),
@@ -335,22 +344,48 @@ if role == "Engineering":
             }
             if calibrated and ppm_val:
                 row_d["Diameter (mm)"] = round(d["equivalent_diameter_px"] / ppm_val, 2)
-            row_d["Review"] = "⚠ Yes" if d["requires_human_review"] else "—"
+            row_d["Needs review"] = "⚠ Yes" if d["requires_human_review"] else "—"
+            row_d["Reviewed"] = reviewed_map.get(d["detection_index"], False)
             reasoning = reasoning_map.get(d["detection_index"], "")
             if reasoning:
                 row_d["Model reasoning"] = reasoning
             det_rows.append(row_d)
 
-        det_df = pd.DataFrame(det_rows)
-        st.dataframe(
+        det_df = pd.DataFrame(det_rows).set_index("id")
+        detail_editor_key = (
+            f"detail_editor_v{st.session_state.get('detail_editor_version', 0)}_{rec['image_id']}"
+        )
+        edited_det_df = st.data_editor(
             det_df,
             hide_index=True,
+            disabled=[c for c in det_df.columns if c != "Reviewed"],
             use_container_width=True,
             column_config={
                 "Confidence": st.column_config.ProgressColumn(
                     "Confidence", min_value=0, max_value=1, format="%.2f"),
+                "Reviewed": st.column_config.CheckboxColumn("Reviewed"),
             },
+            key=detail_editor_key,
         )
+
+        if st.button("Save review decisions", key=f"save_review_{rec['image_id']}"):
+            changed = edited_det_df.index[edited_det_df["Reviewed"] != det_df["Reviewed"]]
+            if len(changed) == 0:
+                st.info("No changes to save.")
+            else:
+                SessionFactory = ensure_classification_tables(db_path)
+                with SessionFactory() as session:
+                    for rid in changed:
+                        image_id, det_idx = rid.rsplit("__", 1)
+                        set_reviewed(session, image_id, int(det_idx),
+                                     reviewed=bool(edited_det_df.loc[rid, "Reviewed"]))
+                    session.commit()
+                load_review_status_df.clear()
+                st.session_state["detail_editor_version"] = (
+                    st.session_state.get("detail_editor_version", 0) + 1
+                )
+                st.success(f"Saved {len(changed)} review decision(s).")
+                st.rerun()
 
     st.divider()
     if n_rev > 0:

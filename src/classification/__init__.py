@@ -4,7 +4,10 @@ from .severity import area_to_severity, worst_severity, load_thresholds
 from .rules import classify_features
 from .classifier import RuleBasedClassifier
 from .pipeline import classify_all, ClassificationSummary
-from .store import ensure_table, get_classification_runs, upsert_classification_run
+from .store import (
+    ensure_table, get_classification_runs, upsert_classification_run,
+    ReviewStatus, set_reviewed, get_review_status,
+)
 
 __all__ = [
     "BaseClassifier", "ClassificationResult", "ImageClassificationResult",
@@ -15,4 +18,5 @@ __all__ = [
     "RuleBasedClassifier",
     "classify_all", "ClassificationSummary",
     "ensure_table", "get_classification_runs", "upsert_classification_run",
+    "ReviewStatus", "set_reviewed", "get_review_status",
 ]

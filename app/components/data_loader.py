@@ -51,6 +51,7 @@ def load_summary_df(db_path: str) -> pd.DataFrame:
                 m.brightness_std,
                 m.quality_flag,
                 m.well_name,
+                m.completion_zone,
                 m.screen_type,
                 m.scale_reference_present,
                 m.source_path
@@ -98,7 +99,7 @@ def load_summary_df(db_path: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=300)
 def load_defects_df(db_path: str) -> pd.DataFrame:
-    """One row per defect — all detections with image context."""
+    """One row per defect — all detections with image context + model reasoning."""
     from sqlalchemy import create_engine
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
 
@@ -122,7 +123,47 @@ def load_defects_df(db_path: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.DataFrame(rows)
+
+    # Join in per-detection reasoning from classification_runs. defects_json has no
+    # reasoning field; classifications_json has it keyed by detection_index inside a
+    # JSON blob, with no shared SQL join key besides image_id — merge python-side.
+    try:
+        with engine.connect() as conn:
+            cls_df = pd.read_sql(
+                "SELECT image_id, classifications_json FROM classification_runs "
+                "ORDER BY image_id, run_timestamp",
+                conn,
+            )
+        reasoning_map: dict[tuple[str, int], str] = {}
+        for _, r in cls_df.iterrows():
+            for c in json.loads(r["classifications_json"] or "[]"):
+                # ORDER BY run_timestamp above: latest classification run wins per
+                # (image_id, detection_index) if an image was ever reclassified.
+                reasoning_map[(r["image_id"], c.get("detection_index", -1))] = c.get("reasoning", "")
+        df["reasoning"] = df.apply(
+            lambda row: reasoning_map.get((row["image_id"], row["detection_index"]), ""), axis=1,
+        )
+    except Exception:
+        df["reasoning"] = ""
+
     return df
+
+
+@st.cache_data(ttl=300)
+def load_review_status_df(db_path: str) -> pd.DataFrame:
+    """One row per (image_id, detection_index) human review decision."""
+    from sqlalchemy import create_engine
+    engine = create_engine(f"sqlite:///{db_path}", echo=False)
+
+    try:
+        with engine.connect() as conn:
+            return pd.read_sql(
+                "SELECT id, image_id, detection_index, reviewed, note, reviewed_at "
+                "FROM review_status",
+                conn,
+            )
+    except Exception:
+        return pd.DataFrame(columns=["id", "image_id", "detection_index", "reviewed", "note", "reviewed_at"])
 
 
 @st.cache_data(ttl=300)
