@@ -241,8 +241,8 @@ class TestReportStore:
         db = tmp_path / "rep2.db"
         SessionFactory = ensure_table(db)
         with SessionFactory() as session:
-            insert_report(session, "per_image", "/a.pdf", "ts")
-            insert_report(session, "per_image", "/b.pdf", "ts")
+            insert_report(session, "per_image", "/a.pdf", "ts", image_id="img_a")
+            insert_report(session, "per_image", "/b.pdf", "ts", image_id="img_b")
             insert_report(session, "summary", "/s.pdf", "ts")
             session.commit()
         with SessionFactory() as session:
@@ -250,6 +250,35 @@ class TestReportStore:
             summ = get_reports(session, "summary")
         assert len(per) == 2
         assert len(summ) == 1
+
+    def test_rerun_replaces_existing_record_instead_of_duplicating(self, tmp_path):
+        db = tmp_path / "rerun.db"
+        SessionFactory = ensure_table(db)
+        with SessionFactory() as session:
+            insert_report(session, "per_image", "/out/a_v1.pdf", "ts1", image_id="img_a")
+            session.commit()
+        with SessionFactory() as session:
+            insert_report(session, "per_image", "/out/a_v2.pdf", "ts2", image_id="img_a")
+            session.commit()
+        with SessionFactory() as session:
+            recs = get_reports(session, "per_image")
+        assert len(recs) == 1
+        assert recs[0].pdf_path == "/out/a_v2.pdf"
+        assert recs[0].run_timestamp == "ts2"
+
+    def test_rerun_replaces_summary_record_instead_of_duplicating(self, tmp_path):
+        db = tmp_path / "rerun_summary.db"
+        SessionFactory = ensure_table(db)
+        with SessionFactory() as session:
+            insert_report(session, "summary", "/out/s_v1.pdf", "ts1")
+            session.commit()
+        with SessionFactory() as session:
+            insert_report(session, "summary", "/out/s_v2.pdf", "ts2")
+            session.commit()
+        with SessionFactory() as session:
+            recs = get_reports(session, "summary")
+        assert len(recs) == 1
+        assert recs[0].pdf_path == "/out/s_v2.pdf"
 
     def test_multiple_per_image_reports(self, tmp_path):
         db = tmp_path / "multi.db"

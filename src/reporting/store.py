@@ -36,14 +36,28 @@ def insert_report(
     image_id: str | None = None,
     source_filename: str | None = None,
 ) -> ReportRecord:
-    record = ReportRecord(
-        report_type=report_type,
-        image_id=image_id,
-        source_filename=source_filename,
-        pdf_path=pdf_path,
-        run_timestamp=run_timestamp,
+    """Insert or update the record for (report_type, image_id).
+
+    Looked up by a WHERE query rather than a natural primary key so re-running
+    the reporting pipeline replaces prior rows instead of accumulating
+    duplicates — `id` stays a plain autoincrement PK (no schema change) since
+    this table may already exist on disk with that column.
+    """
+    query = session.query(ReportRecord).filter(ReportRecord.report_type == report_type)
+    query = (
+        query.filter(ReportRecord.image_id == image_id)
+        if image_id is not None
+        else query.filter(ReportRecord.image_id.is_(None))
     )
-    session.add(record)
+    record = query.first()
+    if record is None:
+        record = ReportRecord(report_type=report_type, image_id=image_id)
+        session.add(record)
+
+    record.source_filename = source_filename
+    record.pdf_path = pdf_path
+    record.run_timestamp = run_timestamp
+
     session.flush()
     return record
 

@@ -72,31 +72,34 @@ python scripts/batch_inference.py --input Image/ --output outputs/
 
 ## Dashboard Pages
 
-Role-based views are available — Engineering users see full technical detail; management views show summary KPIs and trends.
+Five pages, organised around what an engineer actually needs to do rather than
+around pipeline stages. Role-based views are available on every page —
+Engineering users see full technical detail; management views show summary
+KPIs and trends. The Management/Engineering choice persists as you navigate
+between pages.
 
-### Home — Campaign Overview
-![Home](docs/screenshots/01_home.png)
-Campaign KPIs (images analysed, mean and max erosion %, total defects, review flags), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. Hover over any erosion % metric to see the exact formula.
+### Overview — Campaign Dashboard, Assessment & Full Data
+![Overview](docs/screenshots/01_overview.png)
+Three tabs on one page instead of three separate ones. **Dashboard**: campaign KPIs (images analysed, mean/max erosion %, total defects, review flags — with a direct link into the Review Queue when any are flagged), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. **Assessment**: colour-coded campaign risk banner, observed conditions generated from actual data, morphological classification basis per failure type, potential root causes, and prioritised recommended actions. **Full Data & Export**: erosion-vs-defect-count scatter, the complete per-image metrics table, and CSV export for both the metrics table and the full defects table.
 
-### Gallery — Image Browser
-![Gallery](docs/screenshots/02_gallery.png)
-Thumbnail grid of annotated screen images, sortable by erosion % or severity, with per-card defect summary and review flags.
+### Review Queue — Triage Worklist
+![Review Queue](docs/screenshots/02_review_queue.png)
+Every detection flagged for human review, sorted least-confident-first, with the model's own reasoning string per row. Mark items reviewed inline (persisted to the database, not just session state) and the queue shrinks — toggle "show already-reviewed" to bring them back. Filter by severity or failure type, and jump straight to the full per-image view for any row.
+
+### Gallery — Browse, Tag Wells & Compare Screens
+![Gallery](docs/screenshots/03_gallery.png)
+Thumbnail grid of annotated screen images, sortable and filterable by severity or dominant failure type. Tag images with a well name and completion zone, then group the grid by well. Select two or more screens for comparison:
+
+![Gallery comparison](docs/screenshots/03b_gallery_compare.png)
+Side-by-side metrics table and annotated thumbnails for just the selected screens, plus an erosion % chart scoped to the comparison.
 
 ### Analysis — Per-Image Detail
-![Analysis](docs/screenshots/03_analysis.png)
-Six KPI cards: erosion % (formula tooltip), defect count, severity (threshold tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds: image quality panel (focus score, illumination, quality flag, screen coverage); auto-generated engineering assessment with risk level, likely mechanism, plain-English interpretation, and morphological classification basis explaining *why* the failure type was assigned; scale calibration UI to enter pixels/mm from a visible ruler — instantly converts all diameters to mm and areas to cm²; per-defect table with the model's own reasoning string per detection.
-
-### Quantification — Metrics & Charts
-![Quantification](docs/screenshots/04_quantification.png)
-Erosion % bar chart with labelled severity thresholds and full metric definition in the caption. Full metrics table includes largest defect %, average defect diameter, and mean model confidence columns.
+![Analysis](docs/screenshots/04_analysis.png)
+Six KPI cards: erosion % (formula tooltip), defect count, severity (threshold tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds: image quality panel (focus score, illumination, quality flag, screen coverage); auto-generated engineering assessment with risk level, likely mechanism, plain-English interpretation, and morphological classification basis explaining *why* the failure type was assigned; scale calibration UI to enter pixels/mm from a visible ruler — instantly converts all diameters to mm and areas to cm²; per-defect table with the model's own reasoning string per detection and an inline reviewed checkbox that stays in sync with the Review Queue. Reachable directly from a Review Queue row, landing on the right image.
 
 ### Reports — PDF Downloads
 ![Reports](docs/screenshots/05_reports.png)
 Download the campaign summary PDF or individual per-image annotated engineering reports as a ZIP archive.
-
-### Engineering Assessment — Campaign Synthesis
-![Assessment](docs/screenshots/06_assessment.png)
-Campaign-level engineering synthesis: colour-coded overall risk banner with risk description; observed conditions generated from actual data (failure type prevalence across all screens, worst-case erosion, review flag count); morphological classification basis per detected failure type in expandable panels; potential root causes derived from the combination of failure types; severity distribution with threshold explanation; prioritised recommended actions synthesised from all failure types; and a per-screen summary table sorted by erosion %.
 
 ---
 
