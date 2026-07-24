@@ -59,6 +59,11 @@ class YOLOv8Detector(BaseDetector):
         try:
             from ultralytics import YOLO  # type: ignore
 
+            # SECURITY: YOLO() deserializes .pt files via torch.load/pickle,
+            # which can execute arbitrary code for a maliciously crafted
+            # weights file. weights_path must only ever point to a file from
+            # a trusted source (local training output or a vetted internal
+            # registry) — never to a user-uploaded or externally-fetched path.
             self._model = YOLO(str(self._weights_path))
             self._model_version = f"YOLOv8/{self._weights_path.name}"
             self._ready = True
