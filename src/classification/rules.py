@@ -15,6 +15,13 @@ Rule order:
   7. Erosion hole      — compact circular dark blob (default dark_blob)
   8. Mechanical damage — fallback for anything with unusual brightness/hue
   9. Unknown           — no rule matched with adequate confidence
+
+Each rule's confidence() is a hand-weighted blend of the shape/colour
+evidence that made it match (hue distance, saturation, area, solidity,
+aspect ratio, circularity) — a heuristic ranking signal for triage and the
+review-threshold gate, not a calibrated probability. Calibrating against
+labelled outcomes requires the ground-truth data tracked in
+data/annotations/, which doesn't exist yet.
 """
 
 from __future__ import annotations
@@ -137,7 +144,13 @@ class _MechanicalDamage(_Rule):
         return True  # always matches — used as penultimate fallback
 
     def confidence(self, fv: FeatureVector) -> float:
-        return 0.42
+        # No specific pattern matched, so this label is inherently uncertain
+        # — capped well below the other rules. But it should still track
+        # evidence rather than being a flat guess: a solid, well-filled blob
+        # is more likely a real (if unclassified) defect than noise that
+        # happened to clear the earlier size/aspect filters.
+        shape_score = 0.5 * fv.extent + 0.5 * fv.solidity
+        return round(min(0.60, 0.20 + 0.40 * shape_score), 4)
 
 
 # Ordered rule list — first match wins
