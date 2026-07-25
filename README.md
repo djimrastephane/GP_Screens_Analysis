@@ -39,12 +39,35 @@ See [Models & Methods](#models--methods) and [Validation](#validation) for what'
 
 `Image/` (source, read-only) flows through eight sequential stages, each persisting its
 output to a shared SQLite database (`data/processed/images.db`) before the next stage
-reads from it:
+reads from it, and the Streamlit dashboard reads from that same database:
 
+```mermaid
+flowchart LR
+    IMG[Image/ source images] --> ING[Ingestion]
+    ING --> PRE[Preprocessing]
+    PRE --> DET[Detection]
+    DET --> SEG[Segmentation]
+    SEG --> CLS[Classification]
+    CLS --> QNT[Quantification]
+    QNT --> ANN[Annotation]
+    ANN --> REP[Reporting]
+    REP --> APP[Streamlit dashboard]
+
+    DB[(images.db · SQLite)]
+    ING -.-> DB
+    PRE -.-> DB
+    DET -.-> DB
+    SEG -.-> DB
+    CLS -.-> DB
+    QNT -.-> DB
+    ANN -.-> DB
+    REP -.-> DB
+    DB -.-> APP
 ```
-ingestion → preprocessing → detection → segmentation → classification
-   → quantification → annotation → reporting → app/ (Streamlit dashboard)
-```
+
+Solid arrows are the processing order; dotted arrows show each stage reading its input
+from and writing its output to the shared database, rather than passing data directly
+stage-to-stage.
 
 | Stage | Code | Responsibility |
 |---|---|---|
