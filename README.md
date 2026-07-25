@@ -76,7 +76,6 @@ flowchart TB
 
     style ROW1 fill:none,stroke:none
     style ROW2 fill:none,stroke:none
-    linkStyle default stroke:#9aa0a6;
 ```
 
 **Legend** — thin solid: processing flow, stage to stage · dotted: structured
