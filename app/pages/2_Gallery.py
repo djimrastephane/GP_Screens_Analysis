@@ -135,10 +135,18 @@ def _render_card(col, rec) -> None:
         st.checkbox("Compare", key=f"cmp_{rec['image_id']}")
 
         sev = rec["overall_severity"]
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Erosion", f"{rec['erosion_pct']:.1f}%")
-        m2.metric("Defects", int(rec["n_defects"]))
-        m3.metric("Severity", f"{sev_emoji.get(sev,'')} {sev.capitalize()}")
+        st.markdown(
+            f"<div style='display:flex;justify-content:space-between;"
+            f"font-size:0.95rem;padding:4px 0'>"
+            f"<span><b>{rec['erosion_pct']:.1f}%</b><br>"
+            f"<span style='color:#888;font-size:0.75rem'>Erosion</span></span>"
+            f"<span><b>{int(rec['n_defects'])}</b><br>"
+            f"<span style='color:#888;font-size:0.75rem'>Defects</span></span>"
+            f"<span><b>{sev_emoji.get(sev,'')} {sev.capitalize()}</b><br>"
+            f"<span style='color:#888;font-size:0.75rem'>Severity</span></span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
         if role == "Engineering":
             dom = rec["dominant_failure_type"].replace("_", " ").title()
