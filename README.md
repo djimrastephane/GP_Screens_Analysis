@@ -214,26 +214,50 @@ KPIs and trends. The Management/Engineering choice persists as you navigate
 between pages.
 
 ### Overview — Campaign Dashboard, Assessment & Full Data
-![Overview](docs/screenshots/01_overview.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/01_overview_dark.png">
+  <img src="docs/screenshots/01_overview.png" alt="Overview">
+</picture>
+
 Three tabs on one page instead of three separate ones. **Dashboard**: campaign KPIs (images analysed, mean/max erosion %, total defects, review flags — with a direct link into the Review Queue when any are flagged), erosion % bar chart ranked by severity, failure type distribution, and severity breakdown. **Assessment**: colour-coded campaign risk banner, observed conditions generated from actual data, morphological classification basis per failure type, potential root causes, and prioritised recommended actions. **Full Data & Export**: erosion-vs-defect-count scatter, the complete per-image metrics table, and CSV export for both the metrics table and the full defects table.
 
 ### Review Queue — Triage Worklist
-![Review Queue](docs/screenshots/02_review_queue.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/02_review_queue_dark.png">
+  <img src="docs/screenshots/02_review_queue.png" alt="Review Queue">
+</picture>
+
 Every detection flagged for human review, sorted least-confident-first, with the model's own reasoning string per row. Mark items reviewed inline (persisted to the database, not just session state) and the queue shrinks — toggle "show already-reviewed" to bring them back. Filter by severity or failure type, and jump straight to the full per-image view for any row.
 
 ### Gallery — Browse, Tag Wells & Compare Screens
-![Gallery](docs/screenshots/03_gallery.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/03_gallery_dark.png">
+  <img src="docs/screenshots/03_gallery.png" alt="Gallery">
+</picture>
+
 Thumbnail grid of annotated screen images, sortable and filterable by severity or dominant failure type. Tag images with a well name and completion zone, then group the grid by well. Select two or more screens for comparison:
 
-![Gallery comparison](docs/screenshots/03b_gallery_compare.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/03b_gallery_compare_dark.png">
+  <img src="docs/screenshots/03b_gallery_compare.png" alt="Gallery comparison">
+</picture>
+
 Side-by-side metrics table and annotated thumbnails for just the selected screens, plus an erosion % chart scoped to the comparison.
 
 ### Analysis — Per-Image Detail
-![Analysis](docs/screenshots/04_analysis.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/04_analysis_dark.png">
+  <img src="docs/screenshots/04_analysis.png" alt="Analysis">
+</picture>
+
 Six KPI cards: erosion % (formula tooltip), defect count, severity (threshold tooltip), dominant failure type, mean model confidence, and review flag count. Engineering view adds: image quality panel (focus score, illumination, quality flag, screen coverage); auto-generated engineering assessment with risk level, likely mechanism, plain-English interpretation, and morphological classification basis explaining *why* the failure type was assigned; scale calibration UI to enter pixels/mm from a visible ruler — instantly converts all diameters to mm and areas to cm²; per-defect table with the model's own reasoning string per detection and an inline reviewed checkbox that stays in sync with the Review Queue. Reachable directly from a Review Queue row, landing on the right image.
 
 ### Reports — PDF Downloads
-![Reports](docs/screenshots/05_reports.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/05_reports_dark.png">
+  <img src="docs/screenshots/05_reports.png" alt="Reports">
+</picture>
+
 Download the campaign summary PDF or individual per-image annotated engineering reports as a ZIP archive.
 
 ---
