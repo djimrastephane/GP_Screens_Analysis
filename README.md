@@ -10,6 +10,18 @@ Failed gravel pack screens are retrieved from wells and inspected at surface. Th
 
 ---
 
+## Prototype Status
+
+This project is currently a prototype built from a very limited image set: 9 inspection images. That dataset is not sufficient to train or validate a production-grade computer vision model.
+
+At this stage, the pipeline is intended to demonstrate the end-to-end workflow: image ingestion, defect annotation, severity estimation, review queues, dashboard views, and report generation. Model outputs should be treated as experimental estimates, not validated engineering conclusions.
+
+A larger, representative, engineer-labelled dataset will be required before the detection, segmentation, classification, and severity scoring components can be trained, benchmarked, and deployed for operational use.
+
+See [Models & Methods](#models--methods) and [Validation](#validation) for what's actually implemented and measured today.
+
+---
+
 ## Failure Modes Detected
 
 | Failure Mode | Description |
