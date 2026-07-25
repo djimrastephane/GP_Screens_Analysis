@@ -66,10 +66,7 @@ flowchart TB
     end
 
     ING -. "each stage persists results" .-> DB
-
-    SEG -.-> OUT
-    ANN -.-> OUT
-    REP -.-> OUT
+    REP -. "segmentation, annotation, reporting write files" .-> OUT
 
     DB -.-> APP
     OUT -.-> APP
