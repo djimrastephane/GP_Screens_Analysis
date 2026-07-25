@@ -65,23 +65,23 @@ flowchart TB
         APP["Streamlit dashboard"]:::dash
     end
 
-    ROW1 -. "every stage persists results" .-> DB
+    ING -. "each stage persists results" .-> DB
 
-    SEG ==> OUT
-    ANN ==> OUT
-    REP ==> OUT
+    SEG -.-> OUT
+    ANN -.-> OUT
+    REP -.-> OUT
 
     DB -.-> APP
-    OUT ==> APP
+    OUT -.-> APP
 
     style ROW1 fill:none,stroke:none
     style ROW2 fill:none,stroke:none
 ```
 
-**Legend** — thin solid: processing flow, stage to stage · dotted: structured
-results persisted to `images.db / SQLite` · thick: file artifacts written to or read
-from `outputs/`. Node colour: blue = source input, grey = processing stage, gold =
-database, green = file outputs, purple = dashboard.
+**Legend** — solid: processing flow, stage to stage · dotted: everything else —
+structured results persisted to `images.db / SQLite` (gold) or file artifacts written to
+`outputs/` (green), and both being read back by the dashboard. Node colour: blue = source
+input, grey = processing stage, gold = database, green = file outputs, purple = dashboard.
 
 | Stage | Code | Responsibility |
 |---|---|---|
