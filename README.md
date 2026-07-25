@@ -65,14 +65,7 @@ flowchart TB
         APP["Streamlit dashboard"]:::dash
     end
 
-    ING -.-> DB
-    PRE -.-> DB
-    DET -.-> DB
-    SEG -.-> DB
-    CLS -.-> DB
-    QNT -.-> DB
-    ANN -.-> DB
-    REP -.-> DB
+    ROW1 -. "every stage persists results" .-> DB
 
     SEG ==> OUT
     ANN ==> OUT
@@ -83,7 +76,7 @@ flowchart TB
 
     style ROW1 fill:none,stroke:none
     style ROW2 fill:none,stroke:none
-    linkStyle default stroke:#9aa0a6,stroke-width:1.3px;
+    linkStyle default stroke:#9aa0a6;
 ```
 
 **Legend** — thin solid: processing flow, stage to stage · dotted: structured
