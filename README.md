@@ -1,6 +1,6 @@
 # GP Screens Analysis
 
-Computer vision pipeline for detecting, classifying, and quantifying failure modes on failed gravel pack (GP) screens from high-resolution inspection images.
+Prototype computer vision workflow for analysing, annotating, and reporting potential failure modes on failed gravel pack (GP) screens from high-resolution inspection images.
 
 ---
 
@@ -22,7 +22,7 @@ See [Models & Methods](#models--methods) and [Validation](#validation) for what'
 
 ---
 
-## Failure Modes Detected
+## Failure Modes Targeted
 
 | Failure Mode | Description |
 |---|---|
@@ -80,6 +80,11 @@ Everything in the pipeline is deterministic (no random seeds are used anywhere i
 
 ### Validation
 
+**The current value of this project is the end-to-end workflow, dashboard, reporting
+layer, and evaluation harness — not production-grade defect detection.** The numbers
+below exist so that claim is checkable, not asserted; read them as a baseline for the
+default rule-based pipeline to improve against, not as a verdict on the concept.
+
 Ground-truth labels now exist for all 9 demo images in `data/annotations/` — 8 images
 with box annotations (all but `Picture 4.jpg`) and 5 with polygon masks — created with
 the bundled interactive labeling tool (`scripts/label_image.py`) by the project author —
@@ -118,7 +123,7 @@ The 9 images in `Image/` (`Picture 1.jpg` – `Picture 8.jpg`, plus `Picture_7.p
 training or validation corpus. They cover a mix of corrosion pitting, erosion holes,
 mechanical damage, and plugging at varying severities, but with no claim of being
 representative of the full failure-mode/severity distribution described in
-[Failure Modes Detected](#failure-modes-detected). Because they ship in the repo, the
+[Failure Modes Targeted](#failure-modes-targeted). Because they ship in the repo, the
 [Batch Inference](#batch-inference-cli) command and Streamlit dashboard both run
 end-to-end out of the box with no data setup required. To analyse real inspection images,
 place them in `Image/` or `data/raw/` in place of (or alongside) the sample set.
