@@ -23,24 +23,100 @@ Failed gravel pack screens are retrieved from wells and inspected at surface. Th
 
 ---
 
-## Pipeline Architecture
+## Pipeline Stages
+
+`Image/` (source, read-only) flows through eight sequential stages, each persisting its
+output to a shared SQLite database (`data/processed/images.db`) before the next stage
+reads from it:
 
 ```
-Image/                      Raw inspection images (JPEG / PNG)
-  └─ src/ingestion          Quality check, metadata extraction
-  └─ src/preprocessing      Resize, normalise, screen region detection
-  └─ src/detection          Defect localisation (bounding boxes)
-  └─ src/segmentation       Binary mask generation per defect region
-  └─ src/classification     Failure type classification + severity score
-  └─ src/quantification     Erosion %, defect count, diameter distribution
-  └─ src/annotation         Overlay generation, 3-panel composites
-  └─ src/reporting          Per-image and campaign PDF reports
-  └─ app/                   Streamlit dashboard
+ingestion → preprocessing → detection → segmentation → classification
+   → quantification → annotation → reporting → app/ (Streamlit dashboard)
 ```
+
+| Stage | Code | Responsibility |
+|---|---|---|
+| Ingestion | `src/ingestion/` | Load images, extract metadata, validate file types |
+| Preprocessing | `src/preprocessing/` | Resize/letterbox to 640×640, CLAHE, denoise, screen-region detection |
+| Detection | `src/detection/` | Localise defect bounding boxes |
+| Segmentation | `src/segmentation/` | Per-defect binary mask generation |
+| Classification | `src/classification/` | Failure type + severity assignment |
+| Quantification | `src/quantification/` | Erosion %, defect count, diameter distribution |
+| Annotation | `src/annotation/` | Overlay drawing, 3-panel composites |
+| Reporting | `src/reporting/` | Per-image and campaign PDF reports |
+
+Repository layout: `app/` (Streamlit UI) · `configs/` (YAML thresholds, see [Models & Methods](#models--methods)) · `data/` (`raw/`, `processed/`, `annotations/`) · `models/` (trained weights — empty by default, see below) · `outputs/` (`masks/`, `overlays/`, `panels/`, `reports/`) · `scripts/` (CLI batch + evaluation) · `tests/`.
+
+---
+
+## Models & Methods
+
+**No trained model weights ship with this repo** (`models/` is empty). The default pipeline
+is entirely classical computer vision and deterministic rules — no training data or GPU
+required:
+
+| Stage | Default method | Trained / pretrained? | Pluggable alternative |
+|---|---|---|---|
+| Detection | `ContourDetector` (`src/detection/contour.py`) — adaptive threshold + morphology + HSV colour-anomaly blob detection, tuned via `configs/detection_config.yaml` | Rule-based, not trained | `YOLOv8Detector` (`src/detection/yolo.py`) — wraps Ultralytics YOLOv8, but requires a `weights_path` to a custom-trained checkpoint. With no weights it reports `ready=False` and returns zero detections rather than falling back to generic COCO classes. No such checkpoint is included or has been trained. |
+| Segmentation | `ContourMaskSegmenter` — mask derived directly from the same contour output as detection | Rule-based, not trained | `GrabCutSegmenter` (classical, no training needed) or `SAMSegmenter` (Meta's Segment Anything, zero-shot but requires downloading SAM weights separately — not bundled) |
+| Classification | `RuleBasedClassifier` (`src/classification/`) — hand-coded decision rules over shape/colour features (circularity, aspect ratio, solidity, brightness, saturation) extracted per detection | Deterministic rules, not a trained classifier | None currently implemented |
+| Severity scoring | Erosion-% thresholds in `configs/severity_config.yaml` (0–5 / 5–20 / 20–50 / >50 → low/medium/high/critical), with collapse/complete-plugging escalated one level | **Engineering defaults, not SME-validated or calibrated against historical failure data** — this is stated explicitly in the code (`app/components/interpretation.py`) and is the single biggest gap before any operational use | Edit `configs/severity_config.yaml` |
+| Root causes & recommended actions | Static, hand-authored template text keyed by failure type and severity (`app/components/interpretation.py`) | **Deterministic templates, not model-generated, not LLM-generated, and not confirmed to be SME-reviewed.** They read as plausible completions-engineering guidance but should be treated as a starting checklist, not an authoritative diagnosis, until reviewed by a qualified engineer | Edit `_FAILURE_NARRATIVES` / `_POTENTIAL_CAUSES` in `app/components/interpretation.py` |
+
+Everything in the pipeline is deterministic (no random seeds are used anywhere in `src/`)
+— the same input image always produces the same output.
+
+### Validation
+
+Ground-truth labels exist for 4 of the 9 demo images in `data/annotations/` (box
+annotations for detection, one polygon mask for segmentation), created with the bundled
+interactive labeling tool (`scripts/label_image.py`) by the project author — **not
+independently reviewed by an engineer or SME**. Running the bundled evaluators against
+them (`python scripts/evaluate_detection.py`, `python scripts/evaluate_segmentation.py`)
+on the current default (contour) pipeline gives:
+
+| Task | Images scored | Result |
+|---|---|---|
+| Detection (box IoU ≥ 0.5) | 3 | Precision 0.00, Recall 0.00, F1 0.00, mean IoU 0.00 (0 TP / 21 FP / 6 FN) |
+| Segmentation (composite mask) | 1 | Precision 0.08, Recall 0.09, Dice 0.09, mean IoU 0.04 |
+
+These numbers are from a sample too small to be statistically meaningful, but they are
+directionally honest: **the default contour/rule-based pipeline does not currently
+localise defects well against pixel/box-level ground truth**, even though the erosion-%
+and severity outputs it drives look reasonable at a glance. Treat this project as a
+working prototype and evaluation harness, not a validated detector. Growing
+`data/annotations/` and re-running the evaluators is the recommended next step before
+trusting outputs for engineering decisions; a trained `YOLOv8Detector` or `SAMSegmenter`
+should also be benchmarked against the same harness once weights exist.
+
+---
+
+## Dataset
+
+The 9 images in `Image/` (`Picture 1.jpg` – `Picture 8.jpg`, plus `Picture_7.png`) are the
+**entire dataset shipped with this repo** — a small demonstration set, not a production
+training or validation corpus. They cover a mix of corrosion pitting, erosion holes,
+mechanical damage, and plugging at varying severities, but with no claim of being
+representative of the full failure-mode/severity distribution described in
+[Failure Modes Detected](#failure-modes-detected). Because they ship in the repo, the
+[Batch Inference](#batch-inference-cli) command and Streamlit dashboard both run
+end-to-end out of the box with no data setup required. To analyse real inspection images,
+place them in `Image/` or `data/raw/` in place of (or alongside) the sample set.
 
 ---
 
 ## Installation
+
+- **Python**: 3.11 (pinned in `.python-version`)
+- **OS**: developed and tested on macOS; no OS-specific code paths, but Windows/Linux are
+  untested
+- **GPU**: not required. The default detection/segmentation/classification path is
+  CPU-only classical CV. `torch`, `torchvision`, and `ultralytics` are still installed
+  (they're on the pluggable YOLOv8/SAM path — see [Models & Methods](#models--methods))
+  and make the environment noticeably heavy (~1.8 GB, mostly `torch`) even though the
+  default pipeline never imports them
+- **Sample data included**: the 9 images in `Image/` mean the app and CLI both run
+  immediately after install with no data of your own required
 
 ```bash
 git clone https://github.com/djimrastephane/GP_Screens_Analysis.git
@@ -129,8 +205,8 @@ Place source images in `Image/` or `data/raw/`. Do not modify source files — t
 | Metric | Definition |
 |---|---|
 | Erosion % | Total defect pixel area ÷ visible screen pixel area × 100. Model estimate of damaged area fraction — not a direct measurement of metal loss or open-flow area increase. |
-| Severity | < 5 % → Low · 5–20 % → Medium · 20–50 % → High · ≥ 50 % → Critical. Screen collapse and complete plugging escalate one level regardless of area. |
-| Mean confidence | Average model confidence across all detections for the image (0–100 %). Detections below 70 % are flagged for human review. |
+| Severity | < 5 % → Low · 5–20 % → Medium · 20–50 % → High · ≥ 50 % → Critical. Screen collapse and complete plugging escalate one level regardless of area. Configurable engineering defaults (`configs/severity_config.yaml`) — see [Models & Methods](#models--methods) for validation status. |
+| Mean confidence | Average model confidence across all detections for the image (0–100 %). Detections below 65 % are flagged for human review (`confidence_review_threshold` in `configs/severity_config.yaml`). |
 | Largest defect % | Area of the single largest detected defect as % of visible screen area. More indicative of breach severity than defect count alone. |
 | Largest diameter | Equivalent circular diameter of the largest defect (pixels, or mm when scale is calibrated from a ruler in the image). |
 | Damage density | Defects per cm² of screen area (requires scale calibration). |
@@ -156,12 +232,19 @@ Place source images in `Image/` or `data/raw/`. Do not modify source files — t
 - Accuracy degrades on severely occluded, blurry, or very low-resolution images
 - Erosion percentages are relative to the detected screen region, not absolute screen area
 - Scale references are not always present; absolute measurements in mm require image calibration
-- Model performance on unseen failure modes may be lower than on training distribution
+- The default detection/segmentation/classification stages are rule-based, not trained on
+  a labelled dataset, so there is no "training distribution" to generalise from — behaviour
+  depends entirely on how well the hand-tuned thresholds in `configs/*.yaml` match a given
+  image, and measured accuracy against the (very small) ground-truth set is currently poor
+  — see [Validation](#validation)
+- Severity thresholds and the root-cause / recommended-action text are engineering-style
+  defaults authored for this project, not confirmed SME-reviewed or calibrated against
+  historical failure data — see [Models & Methods](#models--methods)
 
 ---
 
 ## Target Users
 
-- **Engineering / Completions** — detailed failure classification, root cause evidence, export-ready reports
+- **Engineering / Completions** — detailed failure classification, root cause hypotheses (template-based, for engineering review — see [Models & Methods](#models--methods)), export-ready reports
 - **Well Integrity / HSE** — failure documentation for regulatory records and re-completion design
 - **Management** — asset-level failure rate trends, severity distribution, sand control risk ranking
