@@ -1,0 +1,42 @@
+{
+  "source_filename": "Picture_7.png",
+  "boxes": [
+    {
+      "x1": 170,
+      "y1": 300,
+      "x2": 270,
+      "y2": 390,
+      "failure_type": "erosion_hole"
+    },
+    {
+      "x1": 0,
+      "y1": 395,
+      "x2": 165,
+      "y2": 460,
+      "failure_type": "erosion_hole"
+    },
+    {
+      "x1": 80,
+      "y1": 195,
+      "x2": 640,
+      "y2": 400,
+      "failure_type": "corrosion_pitting"
+    }
+  ],
+  "masks": [
+    {
+      "points": [
+        [200, 305], [250, 300], [268, 320], [265, 355],
+        [240, 380], [200, 390], [178, 375], [172, 340], [180, 315]
+      ],
+      "failure_type": "erosion_hole"
+    },
+    {
+      "points": [
+        [0, 410], [60, 398], [120, 400], [155, 415],
+        [160, 440], [140, 455], [90, 458], [30, 450], [0, 435]
+      ],
+      "failure_type": "erosion_hole"
+    }
+  ]
+}

@@ -68,26 +68,34 @@ Everything in the pipeline is deterministic (no random seeds are used anywhere i
 
 ### Validation
 
-Ground-truth labels exist for 4 of the 9 demo images in `data/annotations/` (box
-annotations for detection, one polygon mask for segmentation), created with the bundled
-interactive labeling tool (`scripts/label_image.py`) by the project author — **not
-independently reviewed by an engineer or SME**. Running the bundled evaluators against
-them (`python scripts/evaluate_detection.py`, `python scripts/evaluate_segmentation.py`)
+Ground-truth labels now exist for all 9 demo images in `data/annotations/` — 8 images
+with box annotations (all but `Picture 4.jpg`) and 5 with polygon masks — created with
+the bundled interactive labeling tool (`scripts/label_image.py`) by the project author —
+**not independently reviewed by an engineer or SME**. Running the bundled evaluators
+against them (`python scripts/evaluate_detection.py`, `python scripts/evaluate_segmentation.py`)
 on the current default (contour) pipeline gives:
 
 | Task | Images scored | Result |
 |---|---|---|
-| Detection (box IoU ≥ 0.5) | 3 | Precision 0.00, Recall 0.00, F1 0.00, mean IoU 0.00 (0 TP / 21 FP / 6 FN) |
-| Segmentation (composite mask) | 1 | Precision 0.08, Recall 0.09, Dice 0.09, mean IoU 0.04 |
+| Detection (box IoU ≥ 0.5) | 8 | Precision 0.01, Recall 0.06, F1 0.02, mean IoU **0.75** on matched boxes only (1 TP / 73 FP / 17 FN) |
+| Segmentation (composite mask) | 5 | Precision 0.10, Recall 0.20, Dice 0.13, mean IoU 0.08 |
 
-These numbers are from a sample too small to be statistically meaningful, but they are
-directionally honest: **the default contour/rule-based pipeline does not currently
-localise defects well against pixel/box-level ground truth**, even though the erosion-%
-and severity outputs it drives look reasonable at a glance. Treat this project as a
-working prototype and evaluation harness, not a validated detector. Growing
-`data/annotations/` and re-running the evaluators is the recommended next step before
-trusting outputs for engineering decisions; a trained `YOLOv8Detector` or `SAMSegmenter`
-should also be benchmarked against the same harness once weights exist.
+Still a small sample by CV standards, but large enough now to see a consistent pattern,
+not just noise: **the default contour detector over-fires badly** — across the 8 scored
+images it produces 74 predicted boxes against 18 ground-truth boxes, so precision is
+poor almost by construction — **and still misses most real defects** (17 of 18 ground
+truth boxes have no matching prediction, recall 0.06). The one true positive it does get
+right is a tight match (IoU 0.75), so when the detector is right it's not merely
+"in the neighbourhood" — it's precisely localised; the failure mode is specificity
+(too many spurious boxes, largely from the colour-anomaly detector) and coverage (most
+real defects never get a matching box at IoU ≥ 0.5), not gross imprecision. Segmentation
+shows the same shape: composite masks over-predict area (pooled predicted pixels are
+roughly 2–7× the labeled pixels per image) while still under-covering the true defect
+region. Treat this project as a working prototype and evaluation harness, not a
+validated detector — `configs/detection_config.yaml`'s NMS/containment thresholds and
+`run_color_anomaly` flag are the first places to tune down the false-positive rate. A
+trained `YOLOv8Detector` or `SAMSegmenter` should also be benchmarked against the same
+harness once weights exist.
 
 ---
 

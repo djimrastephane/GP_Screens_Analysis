@@ -1,0 +1,12 @@
+{
+  "source_filename": "Picture 6.jpg",
+  "boxes": [
+    {
+      "x1": 345,
+      "y1": 250,
+      "x2": 435,
+      "y2": 300,
+      "failure_type": "corrosion_pitting"
+    }
+  ]
+}

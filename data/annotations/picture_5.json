@@ -1,0 +1,36 @@
+{
+  "source_filename": "Picture 5.jpg",
+  "boxes": [
+    {
+      "x1": 195,
+      "y1": 213,
+      "x2": 397,
+      "y2": 385,
+      "failure_type": "corrosion_pitting"
+    },
+    {
+      "x1": 470,
+      "y1": 255,
+      "x2": 625,
+      "y2": 410,
+      "failure_type": "corrosion_pitting"
+    },
+    {
+      "x1": 125,
+      "y1": 380,
+      "x2": 190,
+      "y2": 470,
+      "failure_type": "corrosion_pitting"
+    }
+  ],
+  "masks": [
+    {
+      "points": [
+        [240, 220], [320, 215], [360, 220], [390, 250],
+        [395, 300], [370, 355], [320, 385], [260, 380],
+        [215, 350], [195, 290], [200, 250]
+      ],
+      "failure_type": "corrosion_pitting"
+    }
+  ]
+}

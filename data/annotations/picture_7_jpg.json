@@ -1,0 +1,28 @@
+{
+  "source_filename": "Picture 7.jpg",
+  "boxes": [
+    {
+      "x1": 275,
+      "y1": 278,
+      "x2": 372,
+      "y2": 362,
+      "failure_type": "erosion_hole"
+    },
+    {
+      "x1": 245,
+      "y1": 225,
+      "x2": 565,
+      "y2": 405,
+      "failure_type": "corrosion_pitting"
+    }
+  ],
+  "masks": [
+    {
+      "points": [
+        [285, 285], [330, 278], [360, 290], [370, 320],
+        [355, 350], [320, 362], [290, 352], [275, 320]
+      ],
+      "failure_type": "erosion_hole"
+    }
+  ]
+}
