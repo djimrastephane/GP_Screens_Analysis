@@ -37,23 +37,34 @@ See [Models & Methods](#models--methods) and [Validation](#validation) for what'
 
 ## Pipeline Stages
 
-`Image/` (source, read-only) flows through eight sequential stages, each persisting its
-output to a shared SQLite database (`data/processed/images.db`) before the next stage
-reads from it, and the Streamlit dashboard reads from that same database:
+`Image/` or `data/raw/` (source, read-only) flows through eight sequential stages. Each
+stage persists structured results to the shared SQLite database
+(`data/processed/images.db`) before the next stage reads from it; Segmentation,
+Annotation, and Reporting additionally write file artifacts to `outputs/`. The Streamlit
+dashboard reads from both — the database for metrics, review state, classifications, and
+well tags, and `outputs/` for the overlay/mask/panel images and report downloads it
+displays:
 
 ```mermaid
-flowchart LR
-    IMG[Image/ source images] --> ING[Ingestion]
-    ING --> PRE[Preprocessing]
-    PRE --> DET[Detection]
-    DET --> SEG[Segmentation]
-    SEG --> CLS[Classification]
-    CLS --> QNT[Quantification]
-    QNT --> ANN[Annotation]
-    ANN --> REP[Reporting]
-    REP --> APP[Streamlit dashboard]
+flowchart TB
+    classDef input fill:#2f4863,stroke:#6f93b3,color:#eaf2fb,stroke-width:1px;
+    classDef stage fill:#43484e,stroke:#7a7f85,color:#eef0f2,stroke-width:1px;
+    classDef storage fill:#6b5220,stroke:#b8952f,color:#fbf1d9,stroke-width:1px;
+    classDef artifact fill:#2f4d3c,stroke:#5c9a72,color:#e3f3ea,stroke-width:1px;
+    classDef dash fill:#443660,stroke:#8a6bb0,color:#f1e9fa,stroke-width:1px;
 
-    DB[(images.db · SQLite)]
+    subgraph ROW1[" "]
+        direction LR
+        IMG["Image/ or data/raw/<br/>source images"]:::input --> ING[Ingestion]:::stage --> PRE[Preprocessing]:::stage --> DET[Detection]:::stage --> SEG[Segmentation]:::stage --> CLS[Classification]:::stage --> QNT[Quantification]:::stage --> ANN[Annotation]:::stage --> REP[Reporting]:::stage
+    end
+
+    subgraph ROW2[" "]
+        direction LR
+        DB[("images.db / SQLite")]:::storage
+        OUT["outputs/<br/>masks · overlays · 3-panel composites · reports/zip"]:::artifact
+        APP["Streamlit dashboard"]:::dash
+    end
+
     ING -.-> DB
     PRE -.-> DB
     DET -.-> DB
@@ -62,12 +73,23 @@ flowchart LR
     QNT -.-> DB
     ANN -.-> DB
     REP -.-> DB
+
+    SEG ==> OUT
+    ANN ==> OUT
+    REP ==> OUT
+
     DB -.-> APP
+    OUT ==> APP
+
+    style ROW1 fill:none,stroke:none
+    style ROW2 fill:none,stroke:none
+    linkStyle default stroke:#9aa0a6,stroke-width:1.3px;
 ```
 
-Solid arrows are the processing order; dotted arrows show each stage reading its input
-from and writing its output to the shared database, rather than passing data directly
-stage-to-stage.
+**Legend** — thin solid: processing flow, stage to stage · dotted: structured
+results persisted to `images.db / SQLite` · thick: file artifacts written to or read
+from `outputs/`. Node colour: blue = source input, grey = processing stage, gold =
+database, green = file outputs, purple = dashboard.
 
 | Stage | Code | Responsibility |
 |---|---|---|
