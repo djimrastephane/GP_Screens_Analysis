@@ -13,6 +13,20 @@ def render_sidebar_header() -> str:
     selection persists across page navigation instead of resetting to the
     default on every page load.
     """
+    st.markdown(
+        """
+        <style>
+        [data-testid="stMetricValue"] {
+            font-size: 1.5rem;
+            white-space: normal;
+            overflow-wrap: break-word;
+            line-height: 1.25;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     with st.sidebar:
         st.title("GP Screen Analysis")
         st.caption("Gravel Pack Failure Investigation")
